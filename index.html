@@ -57,7 +57,7 @@
                 <div class="time-box"><label>End</label><input type="time" id="end-left"><button class="btn-now" onclick="setTime('end-left')">NOW</button></div>
             </div>
             <label>Maintenance / Delay Notes</label>
-            <input type="text" id="maint-left" placeholder="e.g. 15:00-15:30 Repair">
+            <input type="text" id="maint-left" placeholder="Notes">
             <button class="btn-add" id="btn-left" onclick="saveToCloud('left')">SAVE ENTRY</button>
             <div id="feed-left" class="live-feed"></div>
         </div>
@@ -75,16 +75,16 @@
                 <div class="time-box"><label>End</label><input type="time" id="end-right"><button class="btn-now" onclick="setTime('end-right')">NOW</button></div>
             </div>
             <label>Maintenance / Delay Notes</label>
-            <input type="text" id="maint-right" placeholder="e.g. 15:00-15:30 Repair">
+            <input type="text" id="maint-right" placeholder="Notes">
             <button class="btn-add" id="btn-right" onclick="saveToCloud('right')">SAVE ENTRY</button>
             <div id="feed-right" class="live-feed"></div>
         </div>
     </div>
 
     <div class="actions">
-        <button class="btn-crew-swap" onclick="swapCrew()">🆕 RESET NAMES</button>
-        <button class="btn-summary" onclick="showSummary()">📊 FINAL SUMMARY</button>
-        <button class="btn-reset-cycle" onclick="doubleWarningReset()">⚠️ RESET CYCLE</button>
+        <button class="btn-crew-swap" onclick="swapCrew()"> RESET NAMES</button>
+        <button class="btn-summary" onclick="showSummary()"> FINAL SUMMARY</button>
+        <button class="btn-reset-cycle" onclick="doubleWarningReset()"> RESET CYCLE</button>
     </div>
     <div id="summaryDisplay"></div>
 </div>
