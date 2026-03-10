@@ -55,6 +55,58 @@
 </head>
 <body>
 
+    <!-- AUTOCOMPLETE NAME LIST -->
+<datalist id="operatorList">
+<option value="Jodel Malana">
+<option value="Jose Babasa">
+<option value="Nico Morana">
+<option value="Clay Samson">
+<option value="Cristhian Aldunar">
+<option value="Erwin Kyle Coronel">
+<option value="Jean Alexis">
+<option value="Alma Dagatan">
+<option value="Luis Obumani">
+<option value="King Russell Nolasco">
+<option value="Jaslyn Alano">
+<option value="Jasmine Balatico">
+<option value="Laila Fuellas">
+<option value="Jorge Geronimo">
+<option value="Wendell Reformado">
+<option value="Dane Cuenca">
+<option value="Naethan Alsola">
+<option value="Miguel Barrinuevo">
+<option value="Christian Leona">
+<option value="Danica Fuderanan">
+<option value="Trisha Linda">
+<option value="Von Aguilar">
+<option value="Jenny Faustino">
+<option value="Via De Ocampo">
+<option value="Marinela Devio">
+<option value="Janna Silla">
+<option value="Reymar Bucao">
+<option value="Angelie Relo">
+<option value="Kurt Bautista">
+<option value="Amiel Ygano">
+<option value="Mark Altabano">
+<option value="Emmanuel John Sapitan">
+<option value="Keon Peralta">
+<option value="Riza Dayson">
+<option value="Earl Espiritu">
+<option value="Timothy Bautista">
+<option value="Johannes Silla">
+<option value="Prince Puno">
+<option value="Warren Bolanos">
+<option value="Vincent Carungcong">
+<option value="Jhon Jhercey Maligalig">
+<option value="Nelson Austria">
+<option value="Gio Salvacion">
+<option value="Kathleen Dimaano">
+<option value="Miel Tadic">
+<option value="Phillip Parot">
+<option value="Paul Hernandez">
+<option value="Psalm Malimban">
+</datalist>
+
 <div class="container">
     <div class="header-info">
         <div><label>Robot ID</label><select id="robotId"><option>Ares-59</option><option>Ares-54</option><option>Ares-53</option><option>Ares-60</option><option>Ares-55</option></select></div>
@@ -66,7 +118,7 @@
         <div class="side-col left-side">
             <h3 style="color:var(--left-color)">LEFT SIDE</h3>
             <label>Operator Name</label>
-            <input type="text" id="pName-left" placeholder="Current Pilot...">
+            <input type="text" id="pName-left" list="operatorList" placeholder="Current Pilot...">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
                 <select id="tong-left"></select>
                 <select id="trunk-left"></select>
@@ -84,7 +136,7 @@
         <div class="side-col right-side">
             <h3 style="color:var(--right-color)">RIGHT SIDE</h3>
             <label>Operator Name</label>
-            <input type="text" id="pName-right" placeholder="Current Pilot...">
+            <input type="text" id="pName-right" list="operatorList" placeholder="Current Pilot...">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
                 <select id="tong-right"></select>
                 <select id="trunk-right"></select>
