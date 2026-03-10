@@ -31,7 +31,8 @@
         .btn-add { width: 100%; margin: 10px 0; background: #333; color: white; height: 45px; }
         
         .live-feed { margin-top: 10px; height: 250px; overflow-y: auto; background: #fafafa; border: 1px inset #eee; padding: 10px; border-radius: 5px; font-size: 0.85em; }
-        .data-card { background: white; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 5px solid #333; }
+        .data-card { background: white; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 5px solid #333; position: relative; }
+        .edit-badge { position: absolute; top: 5px; right: 5px; background: #ffc107; font-size: 9px; padding: 2px 5px; border-radius: 3px; cursor: pointer; font-weight: bold; }
 
         .actions { margin-top: 30px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
         .btn-summary { background: #17a2b8; color: white; height: 50px; }
@@ -49,6 +50,7 @@
         #historyTable th, #historyTable td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         #historyTable thead th { background: #f2f2f2; position: sticky; top: 0; z-index: 10; }
         .close-popup { cursor: pointer; background: var(--danger); color: white; border-radius: 50%; width: 30px; height: 30px; border: none; font-weight: bold; }
+        .btn-edit-table { background: #ffc107; padding: 2px 6px; font-size: 10px; border-radius: 3px; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -68,6 +70,7 @@
     <div class="dashboard">
         <div class="side-col left-side">
             <h3 style="color:var(--left-color)">LEFT SIDE</h3>
+            <input type="hidden" id="edit-idx-left" value="">
             <label>Operator Name</label><input type="text" id="pName-left" placeholder="Pilot Name...">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
                 <select id="tong-left"></select><select id="trunk-left"></select>
@@ -83,6 +86,7 @@
 
         <div class="side-col right-side">
             <h3 style="color:var(--right-color)">RIGHT SIDE</h3>
+            <input type="hidden" id="edit-idx-right" value="">
             <label>Operator Name</label><input type="text" id="pName-right" placeholder="Pilot Name...">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
                 <select id="tong-right"></select><select id="trunk-right"></select>
@@ -121,10 +125,10 @@
                 <tr>
                     <th colspan="2">Operator</th><th rowspan="2">Tong</th><th rowspan="2">Trunk</th>
                     <th colspan="2">Left Side Time</th><th colspan="2">Right Side Time</th>
-                    <th colspan="2">Total Side Time</th><th colspan="2">Idle Time</th>
+                    <th colspan="2">Edit</th>
                 </tr>
                 <tr>
-                    <th>Left</th><th>Right</th><th>Start</th><th>End</th><th>Start</th><th>End</th><th>Left</th><th>Right</th><th>Left</th><th>Right</th>
+                    <th>Left</th><th>Right</th><th>Start</th><th>End</th><th>Start</th><th>End</th><th>L</th><th>R</th>
                 </tr>
             </thead>
             <tbody id="historyBody"></tbody>
@@ -145,17 +149,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 1. MIDNIGHT AUTO-ROLLOVER
-    function updateDateInput() {
-        const dateInput = document.getElementById('opDate');
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        if (dateInput.value !== todayStr) { dateInput.value = todayStr; loadRobotData(); }
-    }
-    updateDateInput();
-    setInterval(updateDateInput, 60000); 
+    // Set Initial Date
+    const dBox = document.getElementById('opDate');
+    if(!dBox.value) dBox.value = new Date().toISOString().split('T')[0];
 
-    // 2. UI HELPERS
+    // UI Dropdowns
     const suffixes = ["st", "nd", "rd", "th", "th", "th", "th", "th", "th"];
     function setupDropdowns(side) {
         const tong = document.getElementById(`tong-${side}`);
@@ -166,6 +164,7 @@
         }
     }
     setupDropdowns('left'); setupDropdowns('right');
+
     function setTime(id) { document.getElementById(id).value = new Date().toTimeString().slice(0,5); }
     
     function formatAMPM(t24) {
@@ -176,22 +175,15 @@
         return `${h}:${m} ${am}`;
     }
 
-    // NEW FORMAT: mm/dd/yy 00:00:00 AM/PM
     function formatTimeFull(t24) {
         if(!t24) return "";
-        const dateInput = document.getElementById('opDate').value; 
-        const dateParts = dateInput.split('-'); // [YYYY, MM, DD]
+        const dateInput = dBox.value; 
+        const dateParts = dateInput.split('-');
         const yearShort = dateParts[0].substring(2);
-        const month = dateParts[1];
-        const day = dateParts[2];
-        const dateFormatted = `${month}/${day}/${yearShort}`;
-
         let [h, m] = t24.split(':');
         let ampm = h >= 12 ? 'PM' : 'AM';
         h = h % 12 || 12;
-        const timeFormatted = `${String(h).padStart(2, '0')}:${m}:00 ${ampm}`;
-
-        return `${dateFormatted} ${timeFormatted}`;
+        return `${dateParts[1]}/${dateParts[2]}/${yearShort} ${String(h).padStart(2, '0')}:${m}:00 ${ampm}`;
     }
 
     function calculateDuration(s, e) {
@@ -205,11 +197,13 @@
         return `${hrs}:${mins.toString().padStart(2, '0')}:00`;
     }
 
-    // 3. DYNAMIC ROBOT FILTERING
+    // Dynamic Data Loading
     function loadRobotData() {
         const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        db.ref(`logs/${robot}/${dateStr}`).off();
+        const dateStr = dBox.value;
+        
+        db.ref(`logs/${robot}/${dateStr}`).off(); // Clear previous listener
+        
         db.ref(`logs/${robot}/${dateStr}`).on('value', (snap) => {
             const data = snap.val() || {};
             ['left', 'right'].forEach(side => {
@@ -218,62 +212,89 @@
                 if(data[side]) {
                     Object.keys(data[side]).sort().reverse().forEach(tk => {
                         const entry = data[side][tk];
-                        const card = document.createElement('div');
-                        card.className = 'data-card';
-                        let pilotList = Object.entries(entry.pilotStats).map(([n, c]) => `${n} (${c})`).join(', ');
-                        card.innerHTML = `<b>${entry.tongLabel}</b><br>Pilots: ${pilotList}<br>End: ${entry.endAMPM}${entry.maint ? '<br><span style="color:red">⚠️ '+entry.maint+'</span>' : ''}`;
-                        feed.appendChild(card);
+                        (entry.trunks || []).forEach((tr, idx) => {
+                            const card = document.createElement('div');
+                            card.className = 'data-card';
+                            card.innerHTML = `<span class="edit-badge" onclick="editEntry('${side}','${tk}',${idx})">EDIT</span>
+                                <b>Tong ${tr.tongNumber} - Trunk ${tr.trunkNumber}</b><br>
+                                Pilots: ${Object.keys(entry.pilotStats || {}).join(', ')}<br>
+                                End: ${tr.endFull.split(' ')[1]} ${tr.endFull.split(' ')[2]}`;
+                            feed.prepend(card);
+                        });
                     });
                 }
             });
         });
     }
 
-    // 4. SAVE LOGIC
     function saveToCloud(side) {
-        const btn = document.getElementById(`btn-${side}`);
         const p = document.getElementById(`pName-${side}`).value.trim();
         const s = document.getElementById(`start-${side}`).value;
         const e = document.getElementById(`end-${side}`).value;
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
+        const maint = document.getElementById(`maint-${side}`).value.trim();
+        const editIdx = document.getElementById(`edit-idx-${side}`).value;
         const tBox = document.getElementById(`tong-${side}`);
         const trBox = document.getElementById(`trunk-${side}`);
-        const tLabel = tBox.options[tBox.selectedIndex].text;
-        const path = `logs/${robot}/${dateStr}/${side}/${tLabel.replace(/ /g, '_')}`;
-
+        const robot = document.getElementById('robotId').value;
+        const dateStr = dBox.value;
+        
         if(!p || !s || !e) return alert("Fill all fields!");
-        btn.disabled = true;
+
+        const tLabel = tBox.options[tBox.selectedIndex].text.replace(/ /g, '_');
+        const path = `logs/${robot}/${dateStr}/${side}/${tLabel}`;
 
         db.ref(path).once('value').then((snap) => {
-            let data = snap.val() || { tongLabel: tLabel, rawStart: s, pilotStats: {}, trunks: [] };
-            data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
-            data.endAMPM = formatAMPM(e);
-            data.duration = calculateDuration(data.rawStart, e);
-            const maint = document.getElementById(`maint-${side}`).value.trim();
-            if(maint) data.maint = data.maint ? (data.maint + " | " + maint) : maint;
-            
-            data.trunks.push({ 
-                operator: p, 
-                startFull: formatTimeFull(s), 
-                endFull: formatTimeFull(e), 
-                duration: calculateDuration(s,e), 
-                tongNumber: tBox.selectedIndex+1, 
-                trunkNumber: trBox.selectedIndex+1 
-            });
+            let data = snap.val() || { tongLabel: tBox.options[tBox.selectedIndex].text, pilotStats: {}, trunks: [] };
+            const newTrunk = { 
+                operator: p, startFull: formatTimeFull(s), endFull: formatTimeFull(e), 
+                rawS: s, rawE: e, tongNumber: tBox.selectedIndex+1, trunkNumber: trBox.selectedIndex+1, maint: maint 
+            };
+
+            if(editIdx !== "") {
+                data.trunks[editIdx] = newTrunk;
+                document.getElementById(`edit-idx-${side}`).value = "";
+                document.getElementById(`btn-${side}`).innerText = "SAVE ENTRY";
+            } else {
+                data.trunks.push(newTrunk);
+            }
+
+            // Tong Summary Recalculation
+            data.rawStart = data.trunks[0].rawS;
+            data.endAMPM = formatAMPM(data.trunks[data.trunks.length-1].rawE);
+            data.duration = calculateDuration(data.rawStart, data.trunks[data.trunks.length-1].rawE);
+            const pilots = [...new Set(data.trunks.map(t => t.operator))];
+            data.pilotStats = {}; pilots.forEach(name => data.pilotStats[name] = true);
+            data.maint = data.trunks.filter(t => t.maint).map(t => t.maint).join(' | ');
+
             return db.ref(path).set(data);
         }).then(() => {
-            btn.disabled = false;
-            document.getElementById(`maint-${side}`).value = "";
             document.getElementById(`start-${side}`).value = e;
-            if(trBox.selectedIndex < 8) trBox.selectedIndex++; else { trBox.selectedIndex = 0; if(tBox.selectedIndex < 8) tBox.selectedIndex++; }
+            document.getElementById(`maint-${side}`).value = "";
+            if(editIdx === "") trBox.selectedIndex = (trBox.selectedIndex + 1) % 9;
         });
     }
 
-    // 5. SUMMARY & HISTORY
+    function editEntry(side, tk, idx) {
+        const robot = document.getElementById('robotId').value;
+        const dateStr = dBox.value;
+        db.ref(`logs/${robot}/${dateStr}/${side}/${tk}/trunks/${idx}`).once('value').then(snap => {
+            const v = snap.val();
+            document.getElementById(`pName-${side}`).value = v.operator;
+            document.getElementById(`tong-${side}`).value = v.tongNumber;
+            document.getElementById(`trunk-${side}`).value = v.trunkNumber;
+            document.getElementById(`start-${side}`).value = v.rawS;
+            document.getElementById(`end-${side}`).value = v.rawE;
+            document.getElementById(`maint-${side}`).value = v.maint || "";
+            document.getElementById(`edit-idx-${side}`).value = idx;
+            document.getElementById(`btn-${side}`).innerText = "UPDATE ENTRY";
+            closePopup();
+            window.scrollTo(0,0);
+        });
+    }
+
     function showSummary() {
         const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
+        const dateStr = dBox.value;
         const cycle = formatAMPM(document.getElementById('cycleStartTime').value);
         db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
             const data = snap.val(); if(!data) return alert("No data!");
@@ -288,37 +309,44 @@
                 }
                 if(side === 'left') r += `========================================\n\n`;
             });
-            document.getElementById('summaryDisplay').innerText = r;
-            document.getElementById('summaryDisplay').style.display = 'block';
-            document.getElementById('summaryDisplay').scrollIntoView({ behavior: 'smooth' });
+            const sDiv = document.getElementById('summaryDisplay');
+            sDiv.innerText = r;
+            sDiv.style.display = 'block';
+            sDiv.scrollIntoView({ behavior: 'smooth' });
         });
     }
 
     function showAllOperations() {
         const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
+        const dateStr = dBox.value;
         db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
             const data = snap.val(); if(!data) return alert("No data.");
             const body = document.getElementById('historyBody');
             body.innerHTML = "";
-            let LTrunks = [], RTrunks = [];
-            if(data.left) Object.values(data.left).forEach(t => LTrunks = LTrunks.concat(t.trunks || []));
-            if(data.right) Object.values(data.right).forEach(t => RTrunks = RTrunks.concat(t.trunks || []));
-            const rows = Math.max(LTrunks.length, RTrunks.length);
-            
-            for(let i=0; i<rows; i++) {
-                const L = LTrunks[i] || {}; const R = RTrunks[i] || {};
+            let Ls = [], Rs = [];
+            if(data.left) Object.keys(data.left).forEach(tk => data.left[tk].trunks.forEach((t,i) => Ls.push({...t, tk, i})));
+            if(data.right) Object.keys(data.right).forEach(tk => data.right[tk].trunks.forEach((t,i) => Rs.push({...t, tk, i})));
+            for(let i=0; i<Math.max(Ls.length, Rs.length); i++) {
+                const L = Ls[i] || {}; const R = Rs[i] || {};
                 body.innerHTML += `<tr>
                     <td>${L.operator||""}</td><td>${R.operator||""}</td>
                     <td>${L.tongNumber||R.tongNumber||""}</td><td>${L.trunkNumber||R.trunkNumber||""}</td>
                     <td>${L.startFull||""}</td><td>${L.endFull||""}</td>
                     <td>${R.startFull||""}</td><td>${R.endFull||""}</td>
-                    <td>${L.duration||"0:00:00"}</td><td>${R.duration||"0:00:00"}</td>
-                    <td>0:00:00</td><td>0:00:00</td>
+                    <td>${L.tk ? `<button class="btn-edit-table" onclick="editEntry('left','${L.tk}',${L.i})">EDIT</button>` : ''}</td>
+                    <td>${R.tk ? `<button class="btn-edit-table" onclick="editEntry('right','${R.tk}',${R.i})">EDIT</button>` : ''}</td>
                 </tr>`;
             }
             document.getElementById('historyPopup').style.display = 'block';
         });
+    }
+
+    function clearFullDatabase() {
+        const r = document.getElementById('robotId').value;
+        const d = dBox.value;
+        if (confirm(`WIPE ALL ${r} data for ${d}?`)) {
+            db.ref(`logs/${r}/${d}`).remove().then(() => { alert("Cleared."); closePopup(); });
+        }
     }
 
     function copyHistoryTable() {
@@ -326,23 +354,16 @@
         let text = "";
         for (let row of table.rows) {
             let rowText = "";
-            for (let cell of row.cells) rowText += cell.innerText.trim() + "\t";
-            text += rowText.trim() + "\n";
+            for (let i=0; i<row.cells.length-2; i++) rowText += row.cells[i].innerText + "\t";
+            text += rowText + "\n";
         }
-        navigator.clipboard.writeText(text).then(() => alert("Copied for Excel!"));
+        navigator.clipboard.writeText(text).then(() => alert("Copied!"));
     }
 
-    function clearFullDatabase() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        if (confirm(`WIPE ALL ${robot} data for ${dateStr}?`)) {
-            db.ref(`logs/${robot}/${dateStr}`).remove().then(() => { alert("Cleared."); closePopup(); });
-        }
-    }
-
-    function swapCrew() { document.getElementById('pName-left').value = ""; document.getElementById('pName-right').value = ""; }
-    function resetCycle() { if(confirm("Reset counters?")) document.querySelectorAll('select').forEach(s => {if(s.id.includes('tong')||s.id.includes('trunk')) s.selectedIndex=0;}); }
     function closePopup() { document.getElementById('historyPopup').style.display = 'none'; }
+    function swapCrew() { document.getElementById('pName-left').value = ""; document.getElementById('pName-right').value = ""; }
+    function resetCycle() { if(confirm("Reset counters?")) { document.getElementById('tong-left').selectedIndex=0; document.getElementById('trunk-left').selectedIndex=0; document.getElementById('tong-right').selectedIndex=0; document.getElementById('trunk-right').selectedIndex=0; } }
+    
     loadRobotData();
 </script>
 </body>
