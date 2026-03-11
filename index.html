@@ -41,12 +41,13 @@
         
         #summaryDisplay { margin-top: 25px; white-space: pre-wrap; background: #fff; color: #333; padding: 30px; border: 3px solid #333; border-radius: 8px; display: none; font-family: 'Courier New', monospace; line-height: 1.5; }
 
-        /* HISTORY POPUP STYLES */
-        #historyPopup { display: none; position: fixed; top: 10%; left: 5%; width: 90%; height: 80%; background: white; border: 4px solid #333; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; }
+        #historyPopup { display: none; position: fixed; top: 5%; left: 2%; width: 96%; height: 90%; background: white; border: 4px solid #333; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; }
         #popupHeader { background: #333; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        #popupContent { padding: 20px; height: calc(100% - 60px); overflow-y: auto; }
-        #historyTable { width: 100%; border-collapse: collapse; font-size: 0.8em; white-space: nowrap; }
-        #historyTable th, #historyTable td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+        #popupContent { padding: 20px; height: calc(100% - 80px); overflow-y: auto; }
+        #historyTable { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        #historyTable th, #historyTable td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        #historyTable td[contenteditable="true"] { background-color: #fffcf0; cursor: text; }
+        #historyTable td[contenteditable="true"]:focus { background-color: #fff; outline: 2px solid #17a2b8; }
         #historyTable th { background-color: #f2f2f2; position: sticky; top: 0; }
         .close-popup { cursor: pointer; background: var(--danger); color: white; border-radius: 50%; width: 30px; height: 30px; border: none; font-weight: bold; }
         .btn-copy-history { background: #28a745; color: white; padding: 10px 20px; margin-right: 15px; }
@@ -55,61 +56,70 @@
 </head>
 <body>
 
-    <!-- AUTOCOMPLETE NAME LIST -->
 <datalist id="operatorList">
-<option value="Jodel Malana">
-<option value="Jose Babasa">
-<option value="Nico Morana">
-<option value="Clay Samson">
-<option value="Cristhian Aldunar">
-<option value="Erwin Kyle Coronel">
-<option value="Jean Alexis">
-<option value="Alma Dagatan">
-<option value="Luis Obumani">
-<option value="King Russell Nolasco">
-<option value="Jaslyn Alano">
-<option value="Jasmine Balatico">
-<option value="Laila Fuellas">
-<option value="Jorge Geronimo">
-<option value="Wendell Reformado">
-<option value="Dane Cuenca">
-<option value="Naethan Alsola">
-<option value="Miguel Barrinuevo">
-<option value="Christian Leona">
-<option value="Danica Fuderanan">
-<option value="Trisha Linda">
-<option value="Von Aguilar">
-<option value="Jenny Faustino">
-<option value="Via De Ocampo">
-<option value="Marinela Devio">
-<option value="Janna Silla">
-<option value="Reymar Bucao">
-<option value="Angelie Relo">
-<option value="Kurt Bautista">
-<option value="Amiel Ygano">
-<option value="Mark Altabano">
-<option value="Emmanuel John Sapitan">
-<option value="Keon Peralta">
-<option value="Riza Dayson">
-<option value="Earl Espiritu">
-<option value="Timothy Bautista">
-<option value="Johannes Silla">
-<option value="Prince Puno">
-<option value="Warren Bolanos">
-<option value="Vincent Carungcong">
-<option value="Jhon Jhercey Maligalig">
-<option value="Nelson Austria">
-<option value="Gio Salvacion">
-<option value="Kathleen Dimaano">
-<option value="Miel Tadic">
-<option value="Phillip Parot">
-<option value="Paul Hernandez">
-<option value="Psalm Malimban">
+    <option value="Jodel Malana">
+    <option value="Jose Babasa">
+    <option value="Nico Morana">
+    <option value="Clay Samson">
+    <option value="Cristhian Aldunar">
+    <option value="Erwin Kyle Coronel">
+    <option value="Jean Alexis">
+    <option value="Alma Dagatan">
+    <option value="Luis Obumani">
+    <option value="King Russell Nolasco">
+    <option value="Jaslyn Alano">
+    <option value="Jasmine Balatico">
+    <option value="Laila Fuellas">
+    <option value="Jorge Geronimo">
+    <option value="Wendell Reformado">
+    <option value="Dane Cuenca">
+    <option value="Naethan Alsola">
+    <option value="Miguel Barrinuevo">
+    <option value="Christian Leona">
+    <option value="Danica Fuderanan">
+    <option value="Trisha Linda">
+    <option value="Von Aguilar">
+    <option value="Jenny Faustino">
+    <option value="Via De Ocampo">
+    <option value="Marinela Devio">
+    <option value="Janna Silla">
+    <option value="Reymar Bucao">
+    <option value="Angelie Relo">
+    <option value="Kurt Bautista">
+    <option value="Amiel Ygano">
+    <option value="Mark Altabano">
+    <option value="Emmanuel John Sapitan">
+    <option value="Keon Peralta">
+    <option value="Riza Dayson">
+    <option value="Earl Espiritu">
+    <option value="Timothy Bautista">
+    <option value="Johannes Silla">
+    <option value="Prince Puno">
+    <option value="Warren Bolanos">
+    <option value="Vincent Carungcong">
+    <option value="Jhon Jhercey Maligalig">
+    <option value="Nelson Austria">
+    <option value="Gio Salvacion">
+    <option value="Kathleen Dimaano">
+    <option value="Miel Tadic">
+    <option value="Phillip Parot">
+    <option value="Paul Hernandez">
+    <option value="Psalm Malimban">
 </datalist>
 
 <div class="container">
     <div class="header-info">
-        <div><label>Robot ID</label><select id="robotId"><option>Ares-59</option><option>Ares-54</option><option>Ares-53</option><option>Ares-60</option><option>Ares-55</option></select></div>
+        <div><label>Robot ID</label>
+            <select id="robotId">
+                <option>Ares-59</option>
+                <option>Ares-54</option>
+                <option>Ares-53</option>
+                <option>Ares-60</option>
+                <option>Ares-55</option>
+                <option>Rack 34 (Team 1)</option>
+                <option>Rack 35 (Team 2)</option>
+            </select>
+        </div>
         <div><label>Date</label><input type="date" id="opDate"></div>
         <div><label>Cycle Start Time</label><input type="time" id="cycleStartTime" value="11:30"></div>
     </div>
@@ -138,7 +148,7 @@
             <label>Operator Name</label>
             <input type="text" id="pName-right" list="operatorList" placeholder="Current Pilot...">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-                <select id="tong-right"></select>
+                <select id="tong-right"></select> 
                 <select id="trunk-right"></select>
             </div>
             <div class="time-grid">
@@ -163,8 +173,9 @@
 
 <div id="historyPopup">
     <div id="popupHeader">
-        <span>Ares-59 Operation Log (Excel Format)</span>
+        <span>Operation Log</span>
         <div>
+            <span style="font-size: 0.8em; margin-right: 10px; color: #ffc107;">*Click cells to edit</span>
             <button class="btn-clear-history" onclick="clearFullDatabase()"> CLEAR DATA</button>
             <button class="btn-copy-history" onclick="copyHistoryTable()"> COPY FOR EXCEL</button>
             <button class="close-popup" onclick="closePopup()">X</button>
@@ -214,7 +225,14 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function updateDateInput() { document.getElementById('opDate').valueAsDate = new Date(); }
+    // FIXED: Correct local date initialization
+    function updateDateInput() { 
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('opDate').value = `${year}-${month}-${day}`;
+    }
     updateDateInput();
 
     const suffixes = ["st", "nd", "rd", "th", "th", "th", "th", "th", "th"];
@@ -238,13 +256,37 @@
         return `${h}:${m} ${am}`;
     }
 
+    // FIXED: Handle manual date without timezone shifting
+   // FIXED: Automatically increments the day if the time crosses midnight
+    function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
+        if(!time24) return "";
+        
+        const [year, month, day] = baseDateStr.split('-').map(Number);
+        // Create local date
+        let d = new Date(year, month - 1, day);
+        
+        // Check for midnight crossing
+        // If this is an End Time AND it's earlier in the day than the Start Time
+        if (isEndTime && startTime24 && time24 < startTime24) {
+            d.setDate(d.getDate() + 1); // Move to the next calendar day
+        }
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let displayDay = String(d.getDate()).padStart(2, '0');
+    let displayYear = d.getFullYear();
+    
+    return `${months[d.getMonth()]} ${displayDay}, ${displayYear} ${formatAMPM(time24)}`;
+}
+
     function calculateDuration(s, e) {
         if(!s || !e) return "0:00:00";
         let start = new Date(0,0,0, ...s.split(':'));
         let end = new Date(0,0,0, ...e.split(':'));
         if (end < start) end.setDate(end.getDate() + 1);
         let diff = end - start;
-        return `${Math.floor(diff/3600000)}:${Math.floor((diff%3600000)/60000).toString().padStart(2, '0')}:00`;
+        let hours = Math.floor(diff/3600000);
+        let mins = Math.floor((diff%3600000)/60000);
+        return `${hours}:${mins.toString().padStart(2, '0')}:00`;
     }
 
    function saveToCloud(side) {
@@ -261,7 +303,6 @@
         const maintValue = maintBox.value.trim();
 
         if(!p || !s || !e) return alert("Missing Pilot Name or Times!");
-
         btn.disabled = true;
         btn.innerText = "SAVING...";
 
@@ -269,21 +310,12 @@
         
         db.ref(path).once('value').then((snap) => {
             let data = snap.val() || { tongLabel: tLabel, rawStart: s, pilotStats: {}, maint: "", trunks: [] };
-            
-            // FIX: Ensure 'trunks' exists even if 'data' was partially found without it
-            if (!data.trunks) {
-                data.trunks = [];
-            }
-
             data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
             data.endAMPM = formatAMPM(e);
             data.rawEnd = e;
             data.duration = calculateDuration(data.rawStart, e);
-            
-            if(maintValue) {
-                data.maint = data.maint ? (data.maint + " | " + maintValue) : maintValue;
-            }
-
+            if(maintValue) data.maint = data.maint ? (data.maint + " | " + maintValue) : maintValue;
+            if(!data.trunks) data.trunks = [];
             data.trunks.push({
                 operatorName: p,
                 tongNumber: tngB.selectedIndex + 1,
@@ -292,65 +324,40 @@
                 endTime: e,
                 duration: calculateDuration(s, e)
             });
-
             return db.ref(path).set(data);
         }).then(() => {
             document.getElementById(`start-${side}`).value = e;
             maintBox.value = ""; 
-            
-            if(trkB.selectedIndex < 8) {
-                trkB.selectedIndex++;
-            } else {
-                if(tngB.selectedIndex < 8) {
-                    tngB.selectedIndex++;
-                    trkB.selectedIndex = 0;
-                }
-            }
+            if(trkB.selectedIndex < 8) { trkB.selectedIndex++; } 
+            else if(tngB.selectedIndex < 8) { tngB.selectedIndex++; trkB.selectedIndex = 0; }
             btn.disabled = false;
             btn.innerText = "SAVE ENTRY";
         }).catch((error) => {
             btn.disabled = false;
             btn.innerText = "SAVE ENTRY";
-            console.error(error);
-            alert("Firebase Error: " + error.message);
+            alert("Error: " + error.message);
         });
     }
 
-    // Dynamic Robot & Date Filtering
     function loadRobotData() {
         const robot = document.getElementById('robotId').value;
         const dateStr = document.getElementById('opDate').value;
-        
-        // Remove old listeners to prevent memory leaks or data ghosting
+        document.getElementById('summaryDisplay').innerText = "";
+        document.getElementById('summaryDisplay').style.display = 'none';
         db.ref(`logs/${robot}/${dateStr}`).off();
-
-        // Listen specifically to the selected Robot and Date
         db.ref(`logs/${robot}/${dateStr}`).on('value', (snap) => {
             const data = snap.val() || {};
             ['left', 'right'].forEach(side => {
                 const feed = document.getElementById(`feed-${side}`);
-                feed.innerHTML = ""; // Clear existing UI feeds immediately
-                
+                feed.innerHTML = "";
                 const sideData = data?.[side];
                 if(sideData) {
-                    // Sort Tongs in descending order for the live feed (newest on top)
                     Object.values(sideData).sort((a,b) => b.tongLabel.localeCompare(a.tongLabel)).forEach(entry => {
                         const card = document.createElement('div');
                         card.className = 'data-card';
-                        
-                        let pilotList = Object.entries(entry.pilotStats)
-                            .map(([name, count]) => `${name} (${count})`)
-                            .join(', ');
-                            
-                        let maintDisplay = entry.maint ? 
-                            `<br><span style="color:#dc3545; font-weight:bold;">⚠️ ${entry.maint}</span>` : "";
-                        
-                        card.innerHTML = `
-                            <b>${entry.tongLabel}</b><br>
-                            Pilots: ${pilotList}<br>
-                            End: ${entry.endAMPM}
-                            ${maintDisplay}
-                        `;
+                        let pilotList = Object.entries(entry.pilotStats).map(([name, count]) => `${name} (${count})`).join(', ');
+                        let maintDisplay = entry.maint ? `<br><span style="color:#dc3545; font-weight:bold;">⚠️ ${entry.maint}</span>` : "";
+                        card.innerHTML = `<b>${entry.tongLabel}</b><br>Pilots: ${pilotList}<br>End: ${entry.endAMPM}${maintDisplay}`;
                         feed.appendChild(card);
                     });
                 }
@@ -358,14 +365,10 @@
         });
     }
 
-    // Attach the loadRobotData function to robotId select and opDate input
     document.getElementById('robotId').addEventListener('change', loadRobotData);
     document.getElementById('opDate').addEventListener('change', loadRobotData);
-    
-    // Initial call to populate data on load
     loadRobotData();
 
-    // Summary View
     function showSummary() {
         const robot = document.getElementById('robotId').value;
         const dateStr = document.getElementById('opDate').value;
@@ -375,43 +378,19 @@
         db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
             const data = snap.val();
             if(!data) return alert("No data recorded yet!");
-
             let report = `Note: This cycle started at ${formatAMPM(cycleStart)}\n\n`;
-            
             ['left', 'right'].forEach(side => {
-                report += `${side.charAt(0).toUpperCase() + side.slice(1)} side:\n`;
+                report += `${side.toUpperCase()} side:\n`;
                 const sideData = data[side];
-                
-                if(!sideData) {
-                    report += "No activity recorded.\n\n";
-                } else {
-                    // Sort Tongs numerically (1st, 2nd, etc.)
-                    const sortedTongs = Object.keys(sideData).sort((a, b) => {
-                        return parseInt(a) - parseInt(b);
-                    });
-
-                    sortedTongs.forEach(tongKey => {
-                        const tong = sideData[tongKey];
-                        const pilots = Object.keys(tong.pilotStats || {}).join(', ');
-                        
-                        report += `${tong.tongLabel}:\n`;
-                        report += `End: ${tong.endAMPM || "N/A"}\n`;
-                        report += `Overall Time: ${tong.duration || "0:00:00"}\n`;
-                        report += `Pilots: ${pilots || "Unknown"}\n`;
-                        
-                        if(tong.maint) {
-                            report += `Maintenance: ${tong.maint}\n`;
-                        }
-                        report += `\n`;
+                if(!sideData) { report += "No activity.\n\n"; } 
+                else {
+                    Object.keys(sideData).sort((a, b) => parseInt(a) - parseInt(b)).forEach(k => {
+                        const t = sideData[k];
+                        report += `${t.tongLabel}: End ${t.endAMPM || "N/A"} | Time: ${t.duration}\nPilots: ${Object.keys(t.pilotStats || {}).join(', ')}\n${t.maint ? 'Note: '+t.maint+'\n':''}\n`;
                     });
                 }
-                
-                if(side === 'left') {
-                    report += `========================================\n\n`;
-                }
+                if(side === 'left') report += `========================================\n\n`;
             });
-
-            // Inject and show
             display.innerText = report;
             display.style.display = 'block';
             display.scrollIntoView({ behavior: 'smooth' });
@@ -423,86 +402,94 @@
         document.getElementById('maint-left').value = ""; document.getElementById('maint-right').value = "";
     }
 
-    function doubleWarningReset() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        if(confirm(`⚠️ RESET CYCLE: Are you sure you want to reset the local counters back to 1st Tong/Trunk?`)) {
-            if(confirm("❗ FINAL CHECK: This will NOT delete data from the database, but will reset your active tracking counters on screen. Continue?")) {
-                document.getElementById('summaryDisplay').style.display = 'none';
+        function doubleWarningReset() {
+        if(confirm(`RESET counters back to 1st Tong/Trunk?`)) {
+            if(confirm("Cloud history is safe. Reset on-screen counters?")) {
                 ['left', 'right'].forEach(s => {
                     document.getElementById(`tong-${s}`).selectedIndex = 0;
                     document.getElementById(`trunk-${s}`).selectedIndex = 0;
                 });
-                alert(" counters Reset locally. Cloud history is safe.");
+                // NEW: Clear the summary display on the screen
+                document.getElementById('summaryDisplay').innerText = "";
+                document.getElementById('summaryDisplay').style.display = 'none';
             }
         }
     }
 
-    // --- NEW: HISTORY POPUP LOGIC (Excel Table format) ---
+    // FIXED: ARRANGE DATA BY DATE/TIME AND MERGE SIDES (NO GAPS)
     function showAllOperations() {
         const robot = document.getElementById('robotId').value;
         const dateStr = document.getElementById('opDate').value;
 
         db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
             const data = snap.val();
-            if(!data) return alert("No history found for this Robot/Date.");
-
+            if(!data) return alert("No history found.");
             const historyBody = document.getElementById('historyBody');
             historyBody.innerHTML = "";
 
-            // We need to collate all trunk-by-trunk logs from both sides
-            let allLeftTrunks = [];
-            let allRightTrunks = [];
+            let groupedData = {};
 
+            // Extract Left Side
             if(data.left) {
-                Object.values(data.left).forEach(tongData => {
-                    if(tongData.trunks) allLeftTrunks = allLeftTrunks.concat(tongData.trunks);
+                Object.values(data.left).forEach(t => { 
+                    if(t.trunks) {
+                        t.trunks.forEach(entry => {
+                            const key = `${entry.tongNumber}-${entry.trunkNumber}`;
+                            if(!groupedData[key]) groupedData[key] = { tong: entry.tongNumber, trunk: entry.trunkNumber };
+                            groupedData[key].left = entry;
+                        });
+                    }
                 });
             }
+
+            // Extract Right Side
             if(data.right) {
-                Object.values(data.right).forEach(tongData => {
-                    if(tongData.trunks) allRightTrunks = allRightTrunks.concat(tongData.trunks);
+                Object.values(data.right).forEach(t => { 
+                    if(t.trunks) {
+                        t.trunks.forEach(entry => {
+                            const key = `${entry.tongNumber}-${entry.trunkNumber}`;
+                            if(!groupedData[key]) groupedData[key] = { tong: entry.tongNumber, trunk: entry.trunkNumber };
+                            groupedData[key].right = entry;
+                        });
+                    }
                 });
             }
 
-            // Determine max rows needed
-            const maxRows = Math.max(allLeftTrunks.length, allRightTrunks.length);
+            // Sort by Tong, then Trunk
+            const sortedKeys = Object.keys(groupedData).sort((a, b) => {
+                const [tongA, trunkA] = a.split('-').map(Number);
+                const [tongB, trunkB] = b.split('-').map(Number);
+                return tongA !== tongB ? tongA - tongB : trunkA - trunkB;
+            });
 
-            // Populate table matching reference image columns
-            for(let i=0; i<maxRows; i++) {
-                const lTrunk = allLeftTrunks[i] || {};
-                const rTrunk = allRightTrunks[i] || {};
-                
-                // Use left data for Tong/Trunk numbers if both present, otherwise right.
-                // For "plugs" view, we match them sequentially as they appear.
-                const trkNum = lTrunk.trunkNumber || rTrunk.trunkNumber || i+1;
-                const tongNum = lTrunk.tongNumber || rTrunk.tongNumber || Math.ceil((i+1)/9);
+            sortedKeys.forEach(key => {
+                const item = groupedData[key];
+                const l = item.left || {};
+                const r = item.right || {};
 
                 const row = `<tr>
-                    <td>${lTrunk.operatorName || ""}</td> 
-                    <td>${rTrunk.operatorName || ""}</td>
-                    <td>${tongNum}</td>
-                    <td>${trkNum}</td>
-                    <td>${dateStr} ${lTrunk.startTime || ""}</td> <td>${dateStr} ${lTrunk.endTime || ""}</td>
-                    <td>${dateStr} ${rTrunk.startTime || ""}</td>
-                    <td>${dateStr} ${rTrunk.endTime || ""}</td>
-                    <td>${lTrunk.duration || "0:00:00"}</td>
-                    <td>${rTrunk.duration || "0:00:00"}</td>
-                    <td>0:00:00</td> <td>0:00:00</td>
-                </tr>`;
+                <td contenteditable="true">${l.operatorName || ""}</td> 
+                <td contenteditable="true">${r.operatorName || ""}</td>
+                <td contenteditable="true">${item.tong}</td>
+                <td contenteditable="true">${item.trunk}</td>
+                <td contenteditable="true">${getFullDateTimeStr(dateStr, l.startTime)}</td> 
+                <td contenteditable="true">${getFullDateTimeStr(dateStr, l.endTime, true, l.startTime)}</td>
+                <td contenteditable="true">${getFullDateTimeStr(dateStr, r.startTime)}</td>
+                <td contenteditable="true">${getFullDateTimeStr(dateStr, r.endTime, true, r.startTime)}</td>
+                
+                <td contenteditable="true">${l.duration || "0:00:00"}</td>
+                <td contenteditable="true">${r.duration || "0:00:00"}</td>
+                <td contenteditable="true">0:00:00</td> <td contenteditable="true">0:00:00</td>
+            </tr>`;
                 historyBody.innerHTML += row;
-            }
+            });
 
-            // Update Header Name
-            document.getElementById('popupHeader').querySelector('span').innerText = `${robot} Operations Log (${dateStr})`;
-            // Show the popup
+            document.getElementById('popupHeader').querySelector('span').innerText = `${robot} Log (${dateStr})`;
             document.getElementById('historyPopup').style.display = 'block';
         });
     }
 
-    function closePopup() {
-        document.getElementById('historyPopup').style.display = 'none';
-    }
+    function closePopup() { document.getElementById('historyPopup').style.display = 'none'; }
 
     function copyHistoryTable() {
         const table = document.getElementById('historyTable');
@@ -510,22 +497,24 @@
         range.selectNode(table);
         window.getSelection().removeAllRanges();
         window.getSelection().addRange(range);
-        try {
-            document.execCommand('copy');
-            alert("Table copied! Paste into Excel.");
-        } catch (err) {
-            alert("Unable to copy.");
-        }
+        document.execCommand('copy');
+        alert("Table copied! You can now paste into Excel.");
         window.getSelection().removeAllRanges();
     }
     
     function clearFullDatabase() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        if (confirm(`WIPE ALL ${robot} data for ${dateStr}?`)) {
-            db.ref(`logs/${robot}/${dateStr}`).remove().then(() => { alert("Cleared."); closePopup(); });
-        }
+    const robot = document.getElementById('robotId').value;
+    const dateStr = document.getElementById('opDate').value;
+    if (confirm(`WIPE ALL ${robot} data for ${dateStr}?`)) {
+        db.ref(`logs/${robot}/${dateStr}`).remove().then(() => { 
+            alert("Cleared."); 
+            // NEW: Clear the summary display on the screen
+            document.getElementById('summaryDisplay').innerText = "";
+            document.getElementById('summaryDisplay').style.display = 'none';
+            closePopup(); 
+        });
     }
+}
 </script>
 </body>
 </html>
