@@ -43,15 +43,19 @@
 
         #historyPopup { display: none; position: fixed; top: 5%; left: 2%; width: 96%; height: 90%; background: white; border: 4px solid #333; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; }
         #popupHeader { background: #333; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        #popupContent { padding: 20px; height: calc(100% - 80px); overflow-y: auto; }
+        #popupContent { padding: 20px; height: calc(100% - 130px); overflow-y: auto; }
+        
+        .search-bar-container { background: #f4f4f4; padding: 10px 20px; border-bottom: 1px solid #ddd; }
+        #historySearch { width: 100%; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size: 0.9em; }
+
         #historyTable { width: 100%; border-collapse: collapse; font-size: 0.85em; }
         #historyTable th, #historyTable td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         #historyTable td[contenteditable="true"] { background-color: #fffcf0; cursor: text; }
-        #historyTable td[contenteditable="true"]:focus { background-color: #fff; outline: 2px solid #17a2b8; }
         #historyTable th { background-color: #f2f2f2; position: sticky; top: 0; }
         .close-popup { cursor: pointer; background: var(--danger); color: white; border-radius: 50%; width: 30px; height: 30px; border: none; font-weight: bold; }
         .btn-copy-history { background: #28a745; color: white; padding: 10px 20px; margin-right: 15px; }
         .btn-clear-history { background: var(--danger); color: white; padding: 10px 20px; margin-right: 15px; }
+        .btn-save-edit { background: #007bff; color: white; padding: 10px 20px; margin-right: 15px; }
     </style>
 </head>
 <body>
@@ -175,11 +179,14 @@
     <div id="popupHeader">
         <span>Operation Log</span>
         <div>
-            <span style="font-size: 0.8em; margin-right: 10px; color: #ffc107;">*Click cells to edit</span>
+            <button id="btn-save-edit" class="btn-save-edit" onclick="saveTableEdits()"> SAVE CHANGES</button>
             <button class="btn-clear-history" onclick="clearFullDatabase()"> CLEAR DATA</button>
             <button class="btn-copy-history" onclick="copyHistoryTable()"> COPY FOR EXCEL</button>
             <button class="close-popup" onclick="closePopup()">X</button>
         </div>
+    </div>
+    <div class="search-bar-container">
+        <input type="text" id="historySearch" placeholder="Search by Pilot, Tong, or Trunk number..." onkeyup="filterHistoryTable()">
     </div>
     <div id="popupContent">
         <table id="historyTable">
@@ -225,23 +232,28 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // FIXED: Correct local date initialization
+    const suffixes = ["st", "nd", "rd", "th", "th", "th", "th", "th", "th"];
+
     function updateDateInput() { 
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        document.getElementById('opDate').value = `${year}-${month}-${day}`;
+        const dateInput = document.getElementById('opDate');
+
+        // Only set date if empty
+        if (!dateInput.value) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
+        }
     }
     updateDateInput();
 
-    const suffixes = ["st", "nd", "rd", "th", "th", "th", "th", "th", "th"];
     function setupDropdowns(side) {
-        const tong = document.getElementById(`tong-${side}`);
-        const trunk = document.getElementById(`trunk-${side}`);
-        for(let i=1; i<=9; i++) {
-            tong.options.add(new Option(i + suffixes[i-1] + " Tong", i));
-            trunk.options.add(new Option(i + suffixes[i-1] + " Trunk", i));
+        const t = document.getElementById(`tong-${side}`);
+        const tr = document.getElementById(`trunk-${side}`);
+        for(let i=1; i<=8; i++) {
+            t.options.add(new Option(i + suffixes[i-1] + " Tong", i));
+            tr.options.add(new Option(i + suffixes[i-1] + " Trunk", i));
         }
     }
     setupDropdowns('left'); setupDropdowns('right');
@@ -256,27 +268,40 @@
         return `${h}:${m} ${am}`;
     }
 
-    // FIXED: Handle manual date without timezone shifting
-   // FIXED: Automatically increments the day if the time crosses midnight
+    function swapCrew() {
+
+    // Clear operator names
+    document.getElementById('pName-left').value = "";
+    document.getElementById('pName-right').value = "";
+
+    // Reset tong & trunk
+    ['left', 'right'].forEach(s => {
+        document.getElementById(`tong-${s}`).selectedIndex = 0;
+        document.getElementById(`trunk-${s}`).selectedIndex = 0;
+    });
+
+    document.getElementById('summaryDisplay').style.display = 'none';
+}
+
     function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
         if(!time24) return "";
-        
-        const [year, month, day] = baseDateStr.split('-').map(Number);
-        // Create local date
-        let d = new Date(year, month - 1, day);
-        
-        // Check for midnight crossing
-        // If this is an End Time AND it's earlier in the day than the Start Time
-        if (isEndTime && startTime24 && time24 < startTime24) {
-            d.setDate(d.getDate() + 1); // Move to the next calendar day
-        }
+        const [y, m, d] = baseDateStr.split('-').map(Number);
+        let date = new Date(y, m - 1, d);
+        if (isEndTime && startTime24 && time24 < startTime24) { date.setDate(date.getDate() + 1); }
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()} ${formatAMPM(time24)}`;
+    }
 
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    let displayDay = String(d.getDate()).padStart(2, '0');
-    let displayYear = d.getFullYear();
-    
-    return `${months[d.getMonth()]} ${displayDay}, ${displayYear} ${formatAMPM(time24)}`;
-}
+    function convertTo24Hour(str) {
+        if (!str || !str.includes(':')) return "";
+        const parts = str.trim().split(' ');
+        const ampm = parts.pop();
+        const time = parts.pop();
+        let [h, m] = time.split(':').map(Number);
+        if (ampm === 'PM' && h < 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
 
     function calculateDuration(s, e) {
         if(!s || !e) return "0:00:00";
@@ -284,13 +309,12 @@
         let end = new Date(0,0,0, ...e.split(':'));
         if (end < start) end.setDate(end.getDate() + 1);
         let diff = end - start;
-        let hours = Math.floor(diff/3600000);
-        let mins = Math.floor((diff%3600000)/60000);
-        return `${hours}:${mins.toString().padStart(2, '0')}:00`;
+        let hh = Math.floor(diff/3600000);
+        let mm = Math.floor((diff%3600000)/60000);
+        return `${hh}:${mm.toString().padStart(2, '0')}:00`;
     }
 
-   function saveToCloud(side) {
-        const btn = document.getElementById(`btn-${side}`);
+    function saveToCloud(side) {
         const p = document.getElementById(`pName-${side}`).value.trim();
         const s = document.getElementById(`start-${side}`).value;
         const e = document.getElementById(`end-${side}`).value;
@@ -299,222 +323,253 @@
         const tngB = document.getElementById(`tong-${side}`);
         const trkB = document.getElementById(`trunk-${side}`);
         const tLabel = tngB.options[tngB.selectedIndex].text;
-        const maintBox = document.getElementById(`maint-${side}`);
-        const maintValue = maintBox.value.trim();
+        const maint = document.getElementById(`maint-${side}`);
 
-        if(!p || !s || !e) return alert("Missing Pilot Name or Times!");
-        btn.disabled = true;
-        btn.innerText = "SAVING...";
+        if(!p || !s || !e) return alert("Missing Info!");
+        document.getElementById(`btn-${side}`).innerText = "SAVING...";
 
         const path = `logs/${robot}/${dateStr}/${side}/${tLabel.replace(/ /g, '_')}`;
-        
-        db.ref(path).once('value').then((snap) => {
-            let data = snap.val() || { tongLabel: tLabel, rawStart: s, pilotStats: {}, maint: "", trunks: [] };
+        db.ref(path).once('value').then(snap => {
+            let data = snap.val() || { tongLabel: tLabel, rawStart: s, pilotStats: {}, trunks: [] };
             data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
             data.endAMPM = formatAMPM(e);
             data.rawEnd = e;
             data.duration = calculateDuration(data.rawStart, e);
-            if(maintValue) data.maint = data.maint ? (data.maint + " | " + maintValue) : maintValue;
             if(!data.trunks) data.trunks = [];
             data.trunks.push({
-                operatorName: p,
-                tongNumber: tngB.selectedIndex + 1,
-                trunkNumber: trkB.selectedIndex + 1,
-                startTime: s,
-                endTime: e,
-                duration: calculateDuration(s, e)
+                operatorName: p, tongNumber: tngB.selectedIndex + 1, trunkNumber: trkB.selectedIndex + 1,
+                startTime: s, endTime: e, duration: calculateDuration(s, e)
             });
             return db.ref(path).set(data);
         }).then(() => {
-            document.getElementById(`start-${side}`).value = e;
-            maintBox.value = ""; 
-            if(trkB.selectedIndex < 8) { trkB.selectedIndex++; } 
-            else if(tngB.selectedIndex < 8) { tngB.selectedIndex++; trkB.selectedIndex = 0; }
-            btn.disabled = false;
-            btn.innerText = "SAVE ENTRY";
-        }).catch((error) => {
-            btn.disabled = false;
-            btn.innerText = "SAVE ENTRY";
-            alert("Error: " + error.message);
+             document.getElementById(`start-${side}`).value = e;
+            maint.value = "";
+            if(trkB.selectedIndex < 8) trkB.selectedIndex++;
+            else if(tngB.selectedIndex < 8) { 
+                tngB.selectedIndex++; 
+                trkB.selectedIndex = 0; 
+            }
+            document.getElementById(`btn-${side}`).innerText = "SAVE ENTRY";
+            loadRobotData(); 
         });
     }
 
-    function loadRobotData() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        document.getElementById('summaryDisplay').innerText = "";
-        document.getElementById('summaryDisplay').style.display = 'none';
-        db.ref(`logs/${robot}/${dateStr}`).off();
-        db.ref(`logs/${robot}/${dateStr}`).on('value', (snap) => {
-            const data = snap.val() || {};
+let currentListener = null;
+
+function loadRobotData() {
+    const r = document.getElementById('robotId').value;
+    const d = document.getElementById('opDate').value;
+    const path = `logs/${r}/${d}`;
+
+    document.getElementById('summaryDisplay').style.display = 'none';
+
+    // Detach old listener properly
+    if (currentListener) {
+        currentListener.off();
+    }
+
+    currentListener = db.ref(path);
+
+    currentListener.on('value', snap => {
+
+        const data = snap.val() || {};
+
+        ['left', 'right'].forEach(side => {
+            const feed = document.getElementById(`feed-${side}`);
+            feed.innerHTML = "";
+
+            if (data[side]) {
+                Object.values(data[side]).reverse().forEach(entry => {
+                    const card = document.createElement('div');
+                    card.className = 'data-card';
+                    card.innerHTML = `
+                        <b>${entry.tongLabel}</b><br>
+                        Pilots: ${entry.pilotStats ? Object.keys(entry.pilotStats).join(', ') : ""}<br>
+                        End: ${entry.endAMPM || ""}
+                    `;
+                    feed.appendChild(card);
+                });
+            }
+        });
+
+    });
+}
+    function showAllOperations() {
+        const r = document.getElementById('robotId').value;
+        const d = document.getElementById('opDate').value;
+        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
+            const data = snap.val();
+            if(!data) return alert("No history.");
+            const body = document.getElementById('historyBody');
+            body.innerHTML = "";
+            let grouped = {};
+
             ['left', 'right'].forEach(side => {
-                const feed = document.getElementById(`feed-${side}`);
-                feed.innerHTML = "";
-                const sideData = data?.[side];
-                if(sideData) {
-                    Object.values(sideData).sort((a,b) => b.tongLabel.localeCompare(a.tongLabel)).forEach(entry => {
-                        const card = document.createElement('div');
-                        card.className = 'data-card';
-                        let pilotList = Object.entries(entry.pilotStats).map(([name, count]) => `${name} (${count})`).join(', ');
-                        let maintDisplay = entry.maint ? `<br><span style="color:#dc3545; font-weight:bold;">⚠️ ${entry.maint}</span>` : "";
-                        card.innerHTML = `<b>${entry.tongLabel}</b><br>Pilots: ${pilotList}<br>End: ${entry.endAMPM}${maintDisplay}`;
-                        feed.appendChild(card);
+                if(data[side]) {
+                    Object.values(data[side]).forEach(t => {
+                        if(t.trunks) t.trunks.forEach(e => {
+                            const k = `${e.tongNumber}-${e.trunkNumber}`;
+                            if(!grouped[k]) grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber };
+                            grouped[k][side] = e;
+                        });
                     });
                 }
             });
+
+            Object.keys(grouped).sort((a,b) => {
+                const [toA, trA] = a.split('-').map(Number);
+                const [toB, trB] = b.split('-').map(Number);
+                return toA !== toB ? toA - toB : trA - trB;
+            }).forEach(k => {
+                const i = grouped[k]; const l = i.left || {}; const r = i.right || {};
+                body.innerHTML += `<tr>
+                    <td contenteditable="true">${l.operatorName || ""}</td>
+                    <td contenteditable="true">${r.operatorName || ""}</td>
+                    <td contenteditable="true">${i.tong}</td>
+                    <td contenteditable="true">${i.trunk}</td>
+                    <td contenteditable="true">${getFullDateTimeStr(d, l.startTime)}</td>
+                    <td contenteditable="true">${getFullDateTimeStr(d, l.endTime, true, l.startTime)}</td>
+                    <td contenteditable="true">${getFullDateTimeStr(d, r.startTime)}</td>
+                    <td contenteditable="true">${getFullDateTimeStr(d, r.endTime, true, r.startTime)}</td>
+                    <td contenteditable="true">${l.duration || "0:00:00"}</td>
+                    <td contenteditable="true">${r.duration || "0:00:00"}</td>
+                    <td>0:00:00</td><td>0:00:00</td>
+                </tr>`;
+            });
+            document.getElementById('historyPopup').style.display = 'block';
         });
+    }
+
+    function filterHistoryTable() {
+        const query = document.getElementById('historySearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#historyBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? "" : "none";
+        });
+    }
+
+   function saveTableEdits() {
+
+    const r = document.getElementById('robotId').value;
+    const d = document.getElementById('opDate').value;
+    const rows = document.querySelectorAll('#historyBody tr');
+
+    let updates = {};
+
+    rows.forEach(row => {
+
+        const c = row.cells;
+
+        const leftName = c[0].innerText.trim();
+        const rightName = c[1].innerText.trim();
+
+        const tong = parseInt(c[2].innerText.trim());
+        const trunk = parseInt(c[3].innerText.trim());
+
+        if (!tong || !trunk) return;
+
+        const label = `${tong}${suffixes[tong-1]} Tong`;
+        const pathKey = label.replace(/ /g, '_');
+
+        // ===== LEFT SIDE =====
+        if (leftName) {
+
+            const s = convertTo24Hour(c[4].innerText);
+            const e = convertTo24Hour(c[5].innerText);
+
+            const trunkData = {
+                operatorName: leftName,
+                tongNumber: tong,
+                trunkNumber: trunk,
+                startTime: s,
+                endTime: e,
+                duration: calculateDuration(s, e)
+            };
+
+            updates[`logs/${r}/${d}/left/${pathKey}/tongLabel`] = label;
+            updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = trunkData;
+            updates[`logs/${r}/${d}/left/${pathKey}/pilotStats`] = { [leftName]: 1 };
+            updates[`logs/${r}/${d}/left/${pathKey}/endAMPM`] = formatAMPM(e);
+            updates[`logs/${r}/${d}/left/${pathKey}/rawEnd`] = e;
+            updates[`logs/${r}/${d}/left/${pathKey}/duration`] = calculateDuration(s, e);
+        }
+
+        // ===== RIGHT SIDE =====
+        if (rightName) {
+
+            const s = convertTo24Hour(c[6].innerText);
+            const e = convertTo24Hour(c[7].innerText);
+
+            const trunkData = {
+                operatorName: rightName,
+                tongNumber: tong,
+                trunkNumber: trunk,
+                startTime: s,
+                endTime: e,
+                duration: calculateDuration(s, e)
+            };
+
+            updates[`logs/${r}/${d}/right/${pathKey}/tongLabel`] = label;
+            updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = trunkData;
+            updates[`logs/${r}/${d}/right/${pathKey}/pilotStats`] = { [rightName]: 1 };
+            updates[`logs/${r}/${d}/right/${pathKey}/endAMPM`] = formatAMPM(e);
+            updates[`logs/${r}/${d}/right/${pathKey}/rawEnd`] = e;
+            updates[`logs/${r}/${d}/right/${pathKey}/duration`] = calculateDuration(s, e);
+        }
+
+    });
+
+    db.ref().update(updates).then(() => {
+        alert("Tong & Trunk updated successfully!");
+        showAllOperations();
+    });
+
+}
+    function showSummary() {
+        const r = document.getElementById('robotId').value;
+        const d = document.getElementById('opDate').value;
+        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
+            const data = snap.val();
+            if(!data) return alert("No data.");
+            let report = `ARES LOG: ${r} (${d})\n\n`;
+            ['left', 'right'].forEach(side => {
+                report += `${side.toUpperCase()} SIDE:\n`;
+                if(data[side]) Object.values(data[side]).forEach(t => {
+                    report += `${t.tongLabel}: End ${t.endAMPM} | Time: ${t.duration}\nPilots: ${Object.keys(t.pilotStats).join(', ')}\n\n`;
+                });
+            });
+            const disp = document.getElementById('summaryDisplay');
+            disp.innerText = report; disp.style.display = 'block';
+        });
+    }
+
+    function doubleWarningReset() {
+        if(confirm("Reset counters?")) {
+            ['left', 'right'].forEach(s => {
+                document.getElementById(`tong-${s}`).selectedIndex = 0;
+                document.getElementById(`trunk-${s}`).selectedIndex = 0;
+            });
+            document.getElementById('summaryDisplay').style.display = 'none';
+        }
+    }
+
+    function clearFullDatabase() {
+        const r = document.getElementById('robotId').value, d = document.getElementById('opDate').value;
+        if(confirm("Wipe all data?")) db.ref(`logs/${r}/${d}`).remove().then(() => { closePopup(); loadRobotData(); });
+    }
+
+    function closePopup() { document.getElementById('historyPopup').style.display = 'none'; }
+    function copyHistoryTable() {
+        const el = document.getElementById('historyTable');
+        let r = document.createRange(); r.selectNode(el);
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+        document.execCommand('copy'); alert("Copied!");
     }
 
     document.getElementById('robotId').addEventListener('change', loadRobotData);
     document.getElementById('opDate').addEventListener('change', loadRobotData);
     loadRobotData();
-
-    function showSummary() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-        const cycleStart = document.getElementById('cycleStartTime').value;
-        const display = document.getElementById('summaryDisplay');
-
-        db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
-            const data = snap.val();
-            if(!data) return alert("No data recorded yet!");
-            let report = `Note: This cycle started at ${formatAMPM(cycleStart)}\n\n`;
-            ['left', 'right'].forEach(side => {
-                report += `${side.toUpperCase()} side:\n`;
-                const sideData = data[side];
-                if(!sideData) { report += "No activity.\n\n"; } 
-                else {
-                    Object.keys(sideData).sort((a, b) => parseInt(a) - parseInt(b)).forEach(k => {
-                        const t = sideData[k];
-                        report += `${t.tongLabel}: End ${t.endAMPM || "N/A"} | Time: ${t.duration}\nPilots: ${Object.keys(t.pilotStats || {}).join(', ')}\n${t.maint ? 'Note: '+t.maint+'\n':''}\n`;
-                    });
-                }
-                if(side === 'left') report += `========================================\n\n`;
-            });
-            display.innerText = report;
-            display.style.display = 'block';
-            display.scrollIntoView({ behavior: 'smooth' });
-        });
-    }
-
-    function swapCrew() {
-        document.getElementById('pName-left').value = ""; document.getElementById('pName-right').value = "";
-        document.getElementById('maint-left').value = ""; document.getElementById('maint-right').value = "";
-    }
-
-        function doubleWarningReset() {
-        if(confirm(`RESET counters back to 1st Tong/Trunk?`)) {
-            if(confirm("Cloud history is safe. Reset on-screen counters?")) {
-                ['left', 'right'].forEach(s => {
-                    document.getElementById(`tong-${s}`).selectedIndex = 0;
-                    document.getElementById(`trunk-${s}`).selectedIndex = 0;
-                });
-                // NEW: Clear the summary display on the screen
-                document.getElementById('summaryDisplay').innerText = "";
-                document.getElementById('summaryDisplay').style.display = 'none';
-            }
-        }
-    }
-
-    // FIXED: ARRANGE DATA BY DATE/TIME AND MERGE SIDES (NO GAPS)
-    function showAllOperations() {
-        const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
-
-        db.ref(`logs/${robot}/${dateStr}`).once('value').then((snap) => {
-            const data = snap.val();
-            if(!data) return alert("No history found.");
-            const historyBody = document.getElementById('historyBody');
-            historyBody.innerHTML = "";
-
-            let groupedData = {};
-
-            // Extract Left Side
-            if(data.left) {
-                Object.values(data.left).forEach(t => { 
-                    if(t.trunks) {
-                        t.trunks.forEach(entry => {
-                            const key = `${entry.tongNumber}-${entry.trunkNumber}`;
-                            if(!groupedData[key]) groupedData[key] = { tong: entry.tongNumber, trunk: entry.trunkNumber };
-                            groupedData[key].left = entry;
-                        });
-                    }
-                });
-            }
-
-            // Extract Right Side
-            if(data.right) {
-                Object.values(data.right).forEach(t => { 
-                    if(t.trunks) {
-                        t.trunks.forEach(entry => {
-                            const key = `${entry.tongNumber}-${entry.trunkNumber}`;
-                            if(!groupedData[key]) groupedData[key] = { tong: entry.tongNumber, trunk: entry.trunkNumber };
-                            groupedData[key].right = entry;
-                        });
-                    }
-                });
-            }
-
-            // Sort by Tong, then Trunk
-            const sortedKeys = Object.keys(groupedData).sort((a, b) => {
-                const [tongA, trunkA] = a.split('-').map(Number);
-                const [tongB, trunkB] = b.split('-').map(Number);
-                return tongA !== tongB ? tongA - tongB : trunkA - trunkB;
-            });
-
-            sortedKeys.forEach(key => {
-                const item = groupedData[key];
-                const l = item.left || {};
-                const r = item.right || {};
-
-                const row = `<tr>
-                <td contenteditable="true">${l.operatorName || ""}</td> 
-                <td contenteditable="true">${r.operatorName || ""}</td>
-                <td contenteditable="true">${item.tong}</td>
-                <td contenteditable="true">${item.trunk}</td>
-                <td contenteditable="true">${getFullDateTimeStr(dateStr, l.startTime)}</td> 
-                <td contenteditable="true">${getFullDateTimeStr(dateStr, l.endTime, true, l.startTime)}</td>
-                <td contenteditable="true">${getFullDateTimeStr(dateStr, r.startTime)}</td>
-                <td contenteditable="true">${getFullDateTimeStr(dateStr, r.endTime, true, r.startTime)}</td>
-                
-                <td contenteditable="true">${l.duration || "0:00:00"}</td>
-                <td contenteditable="true">${r.duration || "0:00:00"}</td>
-                <td contenteditable="true">0:00:00</td> <td contenteditable="true">0:00:00</td>
-            </tr>`;
-                historyBody.innerHTML += row;
-            });
-
-            document.getElementById('popupHeader').querySelector('span').innerText = `${robot} Log (${dateStr})`;
-            document.getElementById('historyPopup').style.display = 'block';
-        });
-    }
-
-    function closePopup() { document.getElementById('historyPopup').style.display = 'none'; }
-
-    function copyHistoryTable() {
-        const table = document.getElementById('historyTable');
-        let range = document.createRange();
-        range.selectNode(table);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
-        document.execCommand('copy');
-        alert("Table copied! You can now paste into Excel.");
-        window.getSelection().removeAllRanges();
-    }
-    
-    function clearFullDatabase() {
-    const robot = document.getElementById('robotId').value;
-    const dateStr = document.getElementById('opDate').value;
-    if (confirm(`WIPE ALL ${robot} data for ${dateStr}?`)) {
-        db.ref(`logs/${robot}/${dateStr}`).remove().then(() => { 
-            alert("Cleared."); 
-            // NEW: Clear the summary display on the screen
-            document.getElementById('summaryDisplay').innerText = "";
-            document.getElementById('summaryDisplay').style.display = 'none';
-            closePopup(); 
-        });
-    }
-}
 </script>
 </body>
 </html>
