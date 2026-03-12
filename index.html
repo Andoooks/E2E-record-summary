@@ -251,7 +251,7 @@
     function setupDropdowns(side) {
         const t = document.getElementById(`tong-${side}`);
         const tr = document.getElementById(`trunk-${side}`);
-        for(let i=1; i<=8; i++) {
+        for(let i=1; i<=9; i++) {
             t.options.add(new Option(i + suffixes[i-1] + " Tong", i));
             tr.options.add(new Option(i + suffixes[i-1] + " Trunk", i));
         }
