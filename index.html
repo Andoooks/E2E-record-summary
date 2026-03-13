@@ -39,15 +39,24 @@
         .btn-reset-cycle { background: var(--danger); color: white; height: 60px; font-size: 1em; }
         .btn-history { background: #6f42c1; color: white; height: 60px; font-size: 1em; }
         
-        #summaryDisplay { margin-top: 25px; white-space: pre-wrap; background: #fff; color: #333; padding: 30px; border: 3px solid #333; border-radius: 8px; display: none; font-family: 'Courier New', monospace; line-height: 1.5; }
+        /* THIS IS THE EDITABLE SUMMARY BOX */
+        #summaryDisplay { 
+            margin-top: 25px; 
+            white-space: pre-wrap; 
+            background: #fff; 
+            color: #333; 
+            padding: 30px; 
+            border: 3px solid #333; 
+            border-radius: 8px; 
+            display: none; 
+            font-family: 'Courier New', monospace; 
+            line-height: 1.5;
+            outline: none; /* Removes the blue highlight when clicking */
+        }
 
         #historyPopup { display: none; position: fixed; top: 5%; left: 2%; width: 96%; height: 90%; background: white; border: 4px solid #333; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; }
         #popupHeader { background: #333; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-       #popupContent { 
-    padding: 20px; 
-    height: calc(90vh - 160px);
-    overflow-y: auto; 
-}
+        #popupContent { padding: 20px; height: calc(90vh - 160px); overflow-y: auto; }
         .search-bar-container { background: #f4f4f4; padding: 10px 20px; border-bottom: 1px solid #ddd; }
         #historySearch { width: 100%; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size: 0.9em; }
 
@@ -64,67 +73,14 @@
 <body>
 
 <datalist id="operatorList">
-    <option value="Jodel Malana">
-    <option value="Jose Babasa">
-    <option value="Nico Morana">
-    <option value="Clay Samson">
-    <option value="Cristhian Aldunar">
-    <option value="Erwin Kyle Coronel">
-    <option value="Jean Alexis">
-    <option value="Alma Dagatan">
-    <option value="Luis Obumani">
-    <option value="King Russell Nolasco">
-    <option value="Jaslyn Alano">
-    <option value="Jasmine Balatico">
-    <option value="Laila Fuellas">
-    <option value="Jorge Geronimo">
-    <option value="Wendell Reformado">
-    <option value="Dane Cuenca">
-    <option value="Naethan Alsola">
-    <option value="Miguel Barrinuevo">
-    <option value="Christian Leona">
-    <option value="Danica Fuderanan">
-    <option value="Trisha Linda">
-    <option value="Von Aguilar">
-    <option value="Jenny Faustino">
-    <option value="Via De Ocampo">
-    <option value="Marinela Devio">
-    <option value="Janna Silla">
-    <option value="Reymar Bucao">
-    <option value="Angelie Relo">
-    <option value="Kurt Bautista">
-    <option value="Amiel Ygano">
-    <option value="Mark Altabano">
-    <option value="Emmanuel John Sapitan">
-    <option value="Keon Peralta">
-    <option value="Riza Dayson">
-    <option value="Earl Espiritu">
-    <option value="Timothy Bautista">
-    <option value="Johannes Silla">
-    <option value="Prince Puno">
-    <option value="Warren Bolanos">
-    <option value="Vincent Carungcong">
-    <option value="Jhon Jhercey Maligalig">
-    <option value="Nelson Austria">
-    <option value="Gio Salvacion">
-    <option value="Kathleen Dimaano">
-    <option value="Miel Tadic">
-    <option value="Phillip Parot">
-    <option value="Paul Hernandez">
-    <option value="Psalm Malimban">
+    <option value="Jodel Malana"><option value="Jose Babasa"><option value="Nico Morana"><option value="Clay Samson"><option value="Cristhian Aldunar"><option value="Erwin Kyle Coronel"><option value="Jean Alexis"><option value="Alma Dagatan"><option value="Luis Obumani"><option value="King Russell Nolasco"><option value="Jaslyn Alano"><option value="Jasmine Balatico"><option value="Laila Fuellas"><option value="Jorge Geronimo"><option value="Wendell Reformado"><option value="Dane Cuenca"><option value="Naethan Alsola"><option value="Miguel Barrinuevo"><option value="Christian Leona"><option value="Danica Fuderanan"><option value="Trisha Linda"><option value="Von Aguilar"><option value="Jenny Faustino"><option value="Via De Ocampo"><option value="Marinela Devio"><option value="Janna Silla"><option value="Reymar Bucao"><option value="Angelie Relo"><option value="Kurt Bautista"><option value="Amiel Ygano"><option value="Mark Altabano"><option value="Emmanuel John Sapitan"><option value="Keon Peralta"><option value="Riza Dayson"><option value="Earl Espiritu"><option value="Timothy Bautista"><option value="Johannes Silla"><option value="Prince Puno"><option value="Warren Bolanos"><option value="Vincent Carungcong"><option value="Jhon Jhercey Maligalig"><option value="Nelson Austria"><option value="Gio Salvacion"><option value="Kathleen Dimaano"><option value="Miel Tadic"><option value="Phillip Parot"><option value="Paul Hernandez"><option value="Psalm Malimban">
 </datalist>
 
 <div class="container">
     <div class="header-info">
         <div><label>Robot ID</label>
             <select id="robotId">
-                <option>Ares-59</option>
-                <option>Ares-54</option>
-                <option>Ares-53</option>
-                <option>Ares-60</option>
-                <option>Ares-55</option>
-                <option>Rack 34 (Team 1)</option>
-                <option>Rack 35 (Team 0)</option>
+                <option>Ares-59</option><option>Ares-56</option><option>Ares-54</option><option>Ares-53</option><option>Ares-60</option><option>Ares-55</option><option>Rack 34 (Team 1)</option><option>Rack 35 (Team 0)</option>
             </select>
         </div>
         <div><label>Date</label><input type="date" id="opDate"></div>
@@ -175,7 +131,7 @@
         <button class="btn-history" onclick="showAllOperations()"> SHOW ALL DATA</button> 
         <button class="btn-reset-cycle" onclick="doubleWarningReset()"> RESET CYCLE</button>
     </div>
-    <div id="summaryDisplay"></div>
+    <div id="summaryDisplay" contenteditable="true"></div>
 </div>
 
 <div id="historyPopup">
@@ -239,8 +195,6 @@
 
     function updateDateInput() { 
         const dateInput = document.getElementById('opDate');
-
-        // Only set date if empty
         if (!dateInput.value) {
             const now = new Date();
             const year = now.getFullYear();
@@ -254,8 +208,10 @@
     function setupDropdowns(side) {
         const t = document.getElementById(`tong-${side}`);
         const tr = document.getElementById(`trunk-${side}`);
-        for(let i=1; i<=9; i++) {
+        for(let i=1; i<=8; i++) {
             t.options.add(new Option(i + suffixes[i-1] + " Tong", i));
+        }
+        for(let i=1; i<=9; i++) {
             tr.options.add(new Option(i + suffixes[i-1] + " Trunk", i));
         }
     }
@@ -272,19 +228,14 @@
     }
 
     function swapCrew() {
-
-    // Clear operator names
-    document.getElementById('pName-left').value = "";
-    document.getElementById('pName-right').value = "";
-
-    // Reset tong & trunk
-    ['left', 'right'].forEach(s => {
-        document.getElementById(`tong-${s}`).selectedIndex = 0;
-        document.getElementById(`trunk-${s}`).selectedIndex = 0;
-    });
-
-    document.getElementById('summaryDisplay').style.display = 'none';
-}
+        document.getElementById('pName-left').value = "";
+        document.getElementById('pName-right').value = "";
+        ['left', 'right'].forEach(s => {
+            document.getElementById(`tong-${s}`).selectedIndex = 0;
+            document.getElementById(`trunk-${s}`).selectedIndex = 0;
+        });
+        document.getElementById('summaryDisplay').style.display = 'none';
+    }
 
     function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
         if(!time24) return "";
@@ -340,15 +291,15 @@
             data.duration = calculateDuration(data.rawStart, e);
             if(!data.trunks) data.trunks = [];
             data.trunks.push({
-                operatorName: p, tongNumber: tngB.selectedIndex + 1, trunkNumber: trkB.selectedIndex + 1,
+                operatorName: p, tongNumber: parseInt(tngB.value), trunkNumber: parseInt(trkB.value),
                 startTime: s, endTime: e, duration: calculateDuration(s, e)
             });
             return db.ref(path).set(data);
         }).then(() => {
-             document.getElementById(`start-${side}`).value = e;
+            document.getElementById(`start-${side}`).value = e;
             maint.value = "";
             if(trkB.selectedIndex < 8) trkB.selectedIndex++;
-            else if(tngB.selectedIndex < 8) { 
+            else if(tngB.selectedIndex < 7) { 
                 tngB.selectedIndex++; 
                 trkB.selectedIndex = 0; 
             }
@@ -357,152 +308,113 @@
         });
     }
 
-let currentListener = null;
+    let currentListener = null;
 
-function loadRobotData() {
-    const r = document.getElementById('robotId').value;
-    const d = document.getElementById('opDate').value;
-    const path = `logs/${r}/${d}`;
-
-    document.getElementById('summaryDisplay').style.display = 'none';
-
-    // Detach old listener properly
-    if (currentListener) {
-        currentListener.off();
+    function loadRobotData() {
+        const r = document.getElementById('robotId').value;
+        const d = document.getElementById('opDate').value;
+        const path = `logs/${r}/${d}`;
+        document.getElementById('summaryDisplay').style.display = 'none';
+        if (currentListener) { currentListener.off(); }
+        currentListener = db.ref(path);
+        currentListener.on('value', snap => {
+            const data = snap.val() || {};
+            ['left', 'right'].forEach(side => {
+                const feed = document.getElementById(`feed-${side}`);
+                feed.innerHTML = "";
+                if (data[side]) {
+                    Object.values(data[side]).reverse().forEach(entry => {
+                        const card = document.createElement('div');
+                        card.className = 'data-card';
+                        card.innerHTML = `
+                            <b>${entry.tongLabel}</b><br>
+                            Pilots: ${
+                                entry.trunks
+            ? (() => {
+                const counts = {};
+                const trunkList = Array.isArray(entry.trunks) ? entry.trunks : Object.values(entry.trunks);
+                trunkList.forEach(t => {
+                    if (!t || !t.operatorName) return;
+                    counts[t.operatorName] = (counts[t.operatorName] || 0) + 1;
+                });
+                return Object.entries(counts).map(([name, count]) => `${name} (${count})`).join(', ');
+            })() : ""
+                            }<br>
+                            End: ${entry.endAMPM || ""}
+                        `;
+                        feed.appendChild(card);
+                    });
+                }
+            });
+        });
     }
 
-    currentListener = db.ref(path);
-
-    currentListener.on('value', snap => {
-
-        const data = snap.val() || {};
-
-        ['left', 'right'].forEach(side => {
-            const feed = document.getElementById(`feed-${side}`);
-            feed.innerHTML = "";
-
-            if (data[side]) {
-                Object.values(data[side]).reverse().forEach(entry => {
-                    const card = document.createElement('div');
-                    card.className = 'data-card';
-                    card.innerHTML = `
-                        <b>${entry.tongLabel}</b><br>
-                        Pilots: ${
-                            entry.trunks
-        ? (() => {
-            const counts = {};
-            const trunkList = Array.isArray(entry.trunks)
-                ? entry.trunks
-                : Object.values(entry.trunks);
-
-            trunkList.forEach(t => {
-                if (!t || !t.operatorName) return;
-                counts[t.operatorName] = (counts[t.operatorName] || 0) + 1;
+    function showAllOperations() {
+        const r = document.getElementById('robotId').value;
+        const d = document.getElementById('opDate').value;
+        const body = document.getElementById('historyBody');
+        const popup = document.getElementById('historyPopup');
+        if (!body || !popup) return;
+        body.innerHTML = "<tr><td colspan='12'>Loading data...</td></tr>";
+        popup.style.display = 'block';
+        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
+            const data = snap.val();
+            if (!data) {
+                body.innerHTML = "<tr><td colspan='12'>No data found for this date.</td></tr>";
+                return;
+            }
+            body.innerHTML = ""; 
+            let grouped = {};
+            ['left', 'right'].forEach(side => {
+                if (data[side]) {
+                    Object.values(data[side]).forEach(t => {
+                        if (t && t.trunks) {
+                             const trunkList = Array.isArray(t.trunks) ? t.trunks : Object.values(t.trunks);
+                            trunkList.forEach(e => {
+                                 if (!e) return;
+                                 const k = `${e.tongNumber}-${e.trunkNumber}-${e.startTime}`;
+                                 if (!grouped[k]) { grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber }; }
+                                grouped[k][side] = e;
+                            });
+                        }
+                    });
+                }
             });
-
-            return Object.entries(counts)
-                .map(([name, count]) => `${name} (${count})`)
-                .join(', ');
-        })()
-                                : ""
-                        }<br>
-                        End: ${entry.endAMPM || ""}
-                    `;
-                    feed.appendChild(card);
-                });
+            const sortedKeys = Object.keys(grouped).sort((a, b) => {
+                const partsA = a.split('-'), partsB = b.split('-');
+                const tA = parseInt(partsA[0]), trA = parseInt(partsA[1]);
+                const tB = parseInt(partsB[0]), trB = parseInt(partsB[1]);
+                if (tA !== tB) return tA - tB;
+                return trA - trB;
+            });
+            if (sortedKeys.length === 0) {
+                body.innerHTML = "<tr><td colspan='12'>Data exists but no Trunk details found.</td></tr>";
+                return;
             }
+            let html = "";
+            sortedKeys.forEach(k => {
+                const i = grouped[k];
+                const l = i.left || {};
+                const rSide = i.right || {};
+                html += `<tr>
+                    <td contenteditable="true">${l.operatorName || ""}</td>
+                    <td contenteditable="true">${rSide.operatorName || ""}</td>
+                    <td>${i.tong}</td>
+                    <td>${i.trunk}</td>
+                    <td contenteditable="true">${l.startTime ? getFullDateTimeStr(d, l.startTime) : ""}</td>
+                    <td contenteditable="true">${l.endTime ? getFullDateTimeStr(d, l.endTime, true, l.startTime) : ""}</td>
+                    <td contenteditable="true">${rSide.startTime ? getFullDateTimeStr(d, rSide.startTime) : ""}</td>
+                    <td contenteditable="true">${rSide.endTime ? getFullDateTimeStr(d, rSide.endTime, true, rSide.startTime) : ""}</td>
+                    <td>${l.duration || "0:00:00"}</td>
+                    <td>${rSide.duration || "0:00:00"}</td>
+                    <td>0:00:00</td><td>0:00:00</td>
+                </tr>`;
+            });
+            body.innerHTML = html;
+        }).catch(err => {
+            body.innerHTML = `<tr><td colspan='12' style='color:red'>Error: ${err.message}</td></tr>`;
         });
-
-    });
-}
-   function showAllOperations() {
-    const r = document.getElementById('robotId').value;
-    const d = document.getElementById('opDate').value;
-    const body = document.getElementById('historyBody');
-    const popup = document.getElementById('historyPopup');
-
-    if (!body || !popup) return;
-
-    // Show loading state
-    body.innerHTML = "<tr><td colspan='12'>Loading data...</td></tr>";
-    popup.style.display = 'block';
-
-    db.ref(`logs/${r}/${d}`).once('value').then(snap => {
-        const data = snap.val();
-        if (!data) {
-            body.innerHTML = "<tr><td colspan='12'>No data found for this date.</td></tr>";
-            return;
-        }
-
-        body.innerHTML = ""; // Clear loading message
-        let grouped = {};
-
-        ['left', 'right'].forEach(side => {
-            if (data[side]) {
-                // Use Object.values just in case Firebase turned the list into an object
-                Object.values(data[side]).forEach(t => {
-                    if (t && t.trunks) {
-                        // Handle both Arrays and Objects for trunks
-                         const trunkList = Array.isArray(t.trunks) ? t.trunks : Object.values(t.trunks);
-                        
-                        trunkList.forEach(e => {
-                             if (!e) return; // Skip empty slots
-                             const k = `${e.tongNumber}-${e.trunkNumber}-${e.startTime}`;
-                             if (!grouped[k]) {
-                                grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber };
-                            }
-                            grouped[k][side] = e;
-                        });
-                    }
-                });
-            }
-        });
-
-        const sortedKeys = Object.keys(grouped).sort((a, b) => {
-            const partsA = a.split('-');
-            const partsB = b.split('-');
-
-            const tongA = parseInt(partsA[0]);
-            const trunkA = parseInt(partsA[1]);
-
-            const tongB = parseInt(partsB[0]);
-            const trunkB = parseInt(partsB[1]);
-
-            if (tongA !== tongB) return tongA - tongB;
-            return trunkA - trunkB;
-        });
-
-        if (sortedKeys.length === 0) {
-            body.innerHTML = "<tr><td colspan='12'>Data exists but no Trunk details found.</td></tr>";
-            return;
-        }
-
-        let html = "";
-        sortedKeys.forEach(k => {
-            const i = grouped[k];
-            const l = i.left || {};
-            const rSide = i.right || {};
-            
-            html += `<tr>
-                <td contenteditable="true">${l.operatorName || ""}</td>
-                <td contenteditable="true">${rSide.operatorName || ""}</td>
-                <td>${i.tong}</td>
-                <td>${i.trunk}</td>
-                <td contenteditable="true">${l.startTime ? getFullDateTimeStr(d, l.startTime) : ""}</td>
-                <td contenteditable="true">${l.endTime ? getFullDateTimeStr(d, l.endTime, true, l.startTime) : ""}</td>
-                <td contenteditable="true">${rSide.startTime ? getFullDateTimeStr(d, rSide.startTime) : ""}</td>
-                <td contenteditable="true">${rSide.endTime ? getFullDateTimeStr(d, rSide.endTime, true, rSide.startTime) : ""}</td>
-                <td>${l.duration || "0:00:00"}</td>
-                <td>${rSide.duration || "0:00:00"}</td>
-                <td>0:00:00</td><td>0:00:00</td>
-            </tr>`;
-        });
-        body.innerHTML = html;
-    }).catch(err => {
-        console.error(err);
-        body.innerHTML = `<tr><td colspan='12' style='color:red'>Error: ${err.message}</td></tr>`;
-    });
-}
+    }
 
     function filterHistoryTable() {
         const query = document.getElementById('historySearch').value.toLowerCase();
@@ -513,93 +425,56 @@ function loadRobotData() {
         });
     }
 
-   function saveTableEdits() {
+    function saveTableEdits() {
+        const r = document.getElementById('robotId').value;
+        const d = document.getElementById('opDate').value;
+        const rows = document.querySelectorAll('#historyBody tr');
+        let updates = {};
+        rows.forEach(row => {
+            const c = row.cells;
+            const leftName = c[0].innerText.trim();
+            const rightName = c[1].innerText.trim();
+            const tong = parseInt(c[2].innerText.trim());
+            const trunk = parseInt(c[3].innerText.trim());
+            if (!tong || !trunk) return;
+            const label = `${tong}${suffixes[tong-1]} Tong`;
+            const pathKey = label.replace(/ /g, '_');
+            if (leftName) {
+                const s = convertTo24Hour(c[4].innerText);
+                const e = convertTo24Hour(c[5].innerText);
+                updates[`logs/${r}/${d}/left/${pathKey}/tongLabel`] = label;
+                updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = {
+                    operatorName: leftName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
+                };
+                updates[`logs/${r}/${d}/left/${pathKey}/pilotStats`] = { [leftName]: 1 };
+                updates[`logs/${r}/${d}/left/${pathKey}/endAMPM`] = formatAMPM(e);
+                updates[`logs/${r}/${d}/left/${pathKey}/rawEnd`] = e;
+                updates[`logs/${r}/${d}/left/${pathKey}/duration`] = calculateDuration(s, e);
+            }
+            if (rightName) {
+                const s = convertTo24Hour(c[6].innerText);
+                const e = convertTo24Hour(c[7].innerText);
+                updates[`logs/${r}/${d}/right/${pathKey}/tongLabel`] = label;
+                updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = {
+                    operatorName: rightName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
+                };
+                updates[`logs/${r}/${d}/right/${pathKey}/pilotStats`] = { [rightName]: 1 };
+                updates[`logs/${r}/${d}/right/${pathKey}/endAMPM`] = formatAMPM(e);
+                updates[`logs/${r}/${d}/right/${pathKey}/rawEnd`] = e;
+                updates[`logs/${r}/${d}/right/${pathKey}/duration`] = calculateDuration(s, e);
+            }
+        });
+        db.ref().update(updates).then(() => {
+            alert("Tong & Trunk updated successfully!");
+            showAllOperations();
+        });
+    }
 
-    const r = document.getElementById('robotId').value;
-    const d = document.getElementById('opDate').value;
-    const rows = document.querySelectorAll('#historyBody tr');
-
-    let updates = {};
-
-    rows.forEach(row => {
-
-        const c = row.cells;
-
-        const leftName = c[0].innerText.trim();
-        const rightName = c[1].innerText.trim();
-
-        const tong = parseInt(c[2].innerText.trim());
-        const trunk = parseInt(c[3].innerText.trim());
-
-        if (!tong || !trunk) return;
-
-        const label = `${tong}${suffixes[tong-1]} Tong`;
-        const pathKey = label.replace(/ /g, '_');
-
-        // ===== LEFT SIDE =====
-        if (leftName) {
-
-            const s = convertTo24Hour(c[4].innerText);
-            const e = convertTo24Hour(c[5].innerText);
-
-            const trunkData = {
-                operatorName: leftName,
-                tongNumber: tong,
-                trunkNumber: trunk,
-                startTime: s,
-                endTime: e,
-                duration: calculateDuration(s, e)
-            };
-
-            updates[`logs/${r}/${d}/left/${pathKey}/tongLabel`] = label;
-            updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = trunkData;
-            updates[`logs/${r}/${d}/left/${pathKey}/pilotStats`] = { [leftName]: 1 };
-            updates[`logs/${r}/${d}/left/${pathKey}/endAMPM`] = formatAMPM(e);
-            updates[`logs/${r}/${d}/left/${pathKey}/rawEnd`] = e;
-            updates[`logs/${r}/${d}/left/${pathKey}/duration`] = calculateDuration(s, e);
-        }
-
-        // ===== RIGHT SIDE =====
-        if (rightName) {
-
-            const s = convertTo24Hour(c[6].innerText);
-            const e = convertTo24Hour(c[7].innerText);
-
-            const trunkData = {
-                operatorName: rightName,
-                tongNumber: tong,
-                trunkNumber: trunk,
-                startTime: s,
-                endTime: e,
-                duration: calculateDuration(s, e)
-            };
-
-            updates[`logs/${r}/${d}/right/${pathKey}/tongLabel`] = label;
-            updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = trunkData;
-            updates[`logs/${r}/${d}/right/${pathKey}/pilotStats`] = { [rightName]: 1 };
-            updates[`logs/${r}/${d}/right/${pathKey}/endAMPM`] = formatAMPM(e);
-            updates[`logs/${r}/${d}/right/${pathKey}/rawEnd`] = e;
-            updates[`logs/${r}/${d}/right/${pathKey}/duration`] = calculateDuration(s, e);
-        }
-
-    });
-
-    db.ref().update(updates).then(() => {
-        alert("Tong & Trunk updated successfully!");
-        showAllOperations();
-    });
-
-}
-
-function getNextDate(dateStr) {
-    const dt = new Date(dateStr);
-    dt.setDate(dt.getDate() + 1);
-    return dt.toISOString().split('T')[0];
-}
+    // MODIFIED THIS FUNCTION ONLY
     function showSummary() {
         const r = document.getElementById('robotId').value;
         const d = document.getElementById('opDate').value;
-        promise.all([db.ref(`logs/${r}/${d}`).once('value'), db.ref(`logs/${r}/${getNextDate(d)}`).once('value')]).then(snap => {
+        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
             const data = snap.val();
             if(!data) return alert("No data.");
             let report = `ARES LOG: ${r} (${d})\n\n`;
@@ -610,7 +485,8 @@ function getNextDate(dateStr) {
                 });
             });
             const disp = document.getElementById('summaryDisplay');
-            disp.innerText = report; disp.style.display = 'block';
+            disp.innerText = report; 
+            disp.style.display = 'block';
         });
     }
 
