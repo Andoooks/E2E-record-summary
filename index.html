@@ -39,7 +39,6 @@
         .btn-reset-cycle { background: var(--danger); color: white; height: 60px; font-size: 1em; }
         .btn-history { background: #6f42c1; color: white; height: 60px; font-size: 1em; }
         
-        /* THIS IS THE EDITABLE SUMMARY BOX */
         #summaryDisplay { 
             margin-top: 25px; 
             white-space: pre-wrap; 
@@ -51,7 +50,7 @@
             display: none; 
             font-family: 'Courier New', monospace; 
             line-height: 1.5;
-            outline: none; /* Removes the blue highlight when clicking */
+            outline: none; 
         }
 
         #historyPopup { display: none; position: fixed; top: 5%; left: 2%; width: 96%; height: 90%; background: white; border: 4px solid #333; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; }
@@ -83,7 +82,7 @@
                 <option>Ares-59</option><option>Ares-56</option><option>Ares-54</option><option>Ares-53</option><option>Ares-60</option><option>Ares-55</option><option>Rack 34 (Team 1)</option><option>Rack 35 (Team 0)</option>
             </select>
         </div>
-        <div><label>Date</label><input type="date" id="opDate"></div>
+        <div><label>View Data For Date</label><input type="date" id="opDate"></div>
         <div><label>Cycle Start Time</label><input type="time" id="cycleStartTime" value="11:30"></div>
     </div>
 
@@ -247,17 +246,6 @@
         return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()} ${formatAMPM(time24)}`;
     }
 
-    function convertTo24Hour(str) {
-        if (!str || !str.includes(':')) return "";
-        const parts = str.trim().split(' ');
-        const ampm = parts.pop();
-        const time = parts.pop();
-        let [h, m] = time.split(':').map(Number);
-        if (ampm === 'PM' && h < 12) h += 12;
-        if (ampm === 'AM' && h === 12) h = 0;
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
-
     function calculateDuration(s, e) {
         if(!s || !e) return "0:00:00";
         let start = new Date(0,0,0, ...s.split(':'));
@@ -274,7 +262,11 @@
         const s = document.getElementById(`start-${side}`).value;
         const e = document.getElementById(`end-${side}`).value;
         const robot = document.getElementById('robotId').value;
-        const dateStr = document.getElementById('opDate').value;
+        
+        // AUTOMATIC CURRENT DATE FOR SAVING
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
         const tngB = document.getElementById(`tong-${side}`);
         const trkB = document.getElementById(`trunk-${side}`);
         const tLabel = tngB.options[tngB.selectedIndex].text;
@@ -305,6 +297,9 @@
                 trkB.selectedIndex = 0; 
             }
             document.getElementById(`btn-${side}`).innerText = "SAVE ENTRY";
+            
+            // Update the Top Date Picker to today's date so user sees what they just saved
+            document.getElementById('opDate').value = dateStr;
             loadRobotData(); 
         });
     }
@@ -373,7 +368,7 @@
                              const trunkList = Array.isArray(t.trunks) ? t.trunks : Object.values(t.trunks);
                             trunkList.forEach(e => {
                                  if (!e) return;
-                                 const k = `${e.tongNumber}-${e.trunkNumber}-${e.startTime}`;
+                                 const k = `${e.tongNumber}-${e.trunkNumber}-${d}-${e.startTime}`;
                                  if (!grouped[k]) { grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber }; }
                                 grouped[k][side] = e;
                             });
@@ -434,27 +429,24 @@
     }
 
     function deleteEntry(tong, trunk) {
-    const r = document.getElementById('robotId').value;
-    const d = document.getElementById('opDate').value;
-    const label = `${tong}${suffixes[tong-1]} Tong`;
-    const pathKey = label.replace(/ /g, '_');
-
-    if (!confirm("Delete this entry?")) return;
-
-    const updates = {};
-    updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = null;
-    updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = null;
-
-    db.ref().update(updates).then(() => {
-        alert("Entry deleted successfully!");
-        showAllOperations();
-        loadRobotData();
-    });
-}
-
-    function saveTableEdits() {
         const r = document.getElementById('robotId').value;
         const d = document.getElementById('opDate').value;
+        const label = `${tong}${suffixes[tong-1]} Tong`;
+        const pathKey = label.replace(/ /g, '_');
+        if (!confirm("Delete this entry?")) return;
+        const updates = {};
+        updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = null;
+        updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = null;
+        db.ref().update(updates).then(() => {
+            alert("Entry deleted successfully!");
+            showAllOperations();
+            loadRobotData();
+        });
+    }
+
+   function saveTableEdits() {
+        const r = document.getElementById('robotId').value;
+        const originalDate = document.getElementById('opDate').value;
         const rows = document.querySelectorAll('#historyBody tr');
         let updates = {};
         rows.forEach(row => {
@@ -466,38 +458,56 @@
             if (!tong || !trunk) return;
             const label = `${tong}${suffixes[tong-1]} Tong`;
             const pathKey = label.replace(/ /g, '_');
+
             if (leftName) {
-                const s = convertTo24Hour(c[4].innerText);
-                const e = convertTo24Hour(c[5].innerText);
-                updates[`logs/${r}/${d}/left/${pathKey}/tongLabel`] = label;
-                updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = {
+                const startText = c[4].innerText.trim();
+                const endText = c[5].innerText.trim();
+                const startDateObj = new Date(startText);
+                const endDateObj = new Date(endText);
+                if (isNaN(startDateObj) || isNaN(endDateObj)) return;
+                const newDate = startDateObj.toISOString().split('T')[0];
+                const s = startDateObj.toTimeString().slice(0,5);
+                const e = endDateObj.toTimeString().slice(0,5);
+                updates[`logs/${r}/${newDate}/left/${pathKey}/tongLabel`] = label;
+                updates[`logs/${r}/${newDate}/left/${pathKey}/trunks/${trunk-1}`] = {
                     operatorName: leftName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
                 };
-                updates[`logs/${r}/${d}/left/${pathKey}/pilotStats`] = { [leftName]: 1 };
-                updates[`logs/${r}/${d}/left/${pathKey}/endAMPM`] = formatAMPM(e);
-                updates[`logs/${r}/${d}/left/${pathKey}/rawEnd`] = e;
-                updates[`logs/${r}/${d}/left/${pathKey}/duration`] = calculateDuration(s, e);
+                updates[`logs/${r}/${newDate}/left/${pathKey}/pilotStats`] = { [leftName]: 1 };
+                updates[`logs/${r}/${newDate}/left/${pathKey}/endAMPM`] = formatAMPM(e);
+                updates[`logs/${r}/${newDate}/left/${pathKey}/rawEnd`] = e;
+                updates[`logs/${r}/${newDate}/left/${pathKey}/duration`] = calculateDuration(s, e);
+                if (newDate !== originalDate) { updates[`logs/${r}/${originalDate}/left/${pathKey}/trunks/${trunk-1}`] = null; }
             }
             if (rightName) {
-                const s = convertTo24Hour(c[6].innerText);
-                const e = convertTo24Hour(c[7].innerText);
-                updates[`logs/${r}/${d}/right/${pathKey}/tongLabel`] = label;
-                updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = {
+                const startText = c[6].innerText.trim();
+                const endText = c[7].innerText.trim();
+                const startDateObj = new Date(startText);
+                const endDateObj = new Date(endText);
+                if (isNaN(startDateObj) || isNaN(endDateObj)) return;
+                const newDate = startDateObj.toISOString().split('T')[0];
+                const s = startDateObj.toTimeString().slice(0,5);
+                const e = endDateObj.toTimeString().slice(0,5);
+                updates[`logs/${r}/${newDate}/right/${pathKey}/tongLabel`] = label;
+                updates[`logs/${r}/${newDate}/right/${pathKey}/trunks/${trunk-1}`] = {
                     operatorName: rightName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
                 };
-                updates[`logs/${r}/${d}/right/${pathKey}/pilotStats`] = { [rightName]: 1 };
-                updates[`logs/${r}/${d}/right/${pathKey}/endAMPM`] = formatAMPM(e);
-                updates[`logs/${r}/${d}/right/${pathKey}/rawEnd`] = e;
-                updates[`logs/${r}/${d}/right/${pathKey}/duration`] = calculateDuration(s, e);
+                updates[`logs/${r}/${newDate}/right/${pathKey}/pilotStats`] = { [rightName]: 1 };
+                updates[`logs/${r}/${newDate}/right/${pathKey}/endAMPM`] = formatAMPM(e);
+                updates[`logs/${r}/${newDate}/right/${pathKey}/rawEnd`] = e;
+                updates[`logs/${r}/${newDate}/right/${pathKey}/duration`] = calculateDuration(s, e);
+                if (newDate !== originalDate) { updates[`logs/${r}/${originalDate}/right/${pathKey}/trunks/${trunk-1}`] = null; }
             }
         });
         db.ref().update(updates).then(() => {
+            const firstPath = Object.keys(updates)[0];
+            const newDateMatch = firstPath.match(/logs\/[^/]+\/([^/]+)\//);
+            if (newDateMatch && newDateMatch[1]) { document.getElementById('opDate').value = newDateMatch[1]; }
             alert("Tong & Trunk updated successfully!");
             showAllOperations();
+            loadRobotData();
         });
     }
 
-    // MODIFIED THIS FUNCTION ONLY
     function showSummary() {
         const r = document.getElementById('robotId').value;
         const d = document.getElementById('opDate').value;
