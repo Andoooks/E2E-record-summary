@@ -606,13 +606,29 @@
     }
 
     function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
-        if(!time24) return "";
-        const [y, m, d] = baseDateStr.split('-').map(Number);
-        let date = new Date(y, m - 1, d);
-        if (isEndTime && startTime24 && time24 < startTime24) { date.setDate(date.getDate() + 1); }
-        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()} ${formatAMPM(time24)}`;
+    if(!time24) return "";
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    let date = new Date(y, m - 1, d);
+
+    // Get the hour to check if we are in the early morning of the next day
+    const currentHour = parseInt(time24.split(':')[0]);
+    
+    // Check if the session started late (e.g., after 6 PM) 
+    // and the current entry is early morning (e.g., before 7 AM)
+    const cycleStart = document.getElementById('cycleStartTime').value;
+    const startHour = cycleStart ? parseInt(cycleStart.split(':')[0]) : 0;
+
+    if (startHour >= 18 && currentHour < 7) {
+        // If the cycle started in the evening and current time is AM, it's the next day
+        date.setDate(date.getDate() + 1);
+    } else if (isEndTime && startTime24 && time24 < startTime24) {
+        // Fallback for single-entry midnight crossing
+        date.setDate(date.getDate() + 1);
     }
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()} ${formatAMPM(time24)}`;
+}
 
     function calculateDuration(s, e) {
         if(!s || !e) return "0:00:00";
@@ -662,33 +678,52 @@
 
     let currentListener = null;
 
-    function loadRobotData() {
+   function loadRobotData() {
         const r = document.getElementById('robotId').value;
         const d = document.getElementById('opDate').value;
         const path = `logs/${r}/${d}`;
         document.getElementById('summaryDisplay').style.display = 'none';
+        
         if (currentListener) { currentListener.off(); }
         currentListener = db.ref(path);
+        
         currentListener.on('value', snap => {
             const data = snap.val() || {};
             ['left', 'right'].forEach(side => {
                 const feed = document.getElementById(`feed-${side}`);
                 feed.innerHTML = "";
                 if (data[side]) {
-                    Object.values(data[side]).reverse().forEach(entry => {
+                    Object.keys(data[side]).sort().reverse().forEach(key => {
+                        const entry = data[side][key];
+                        const label = entry.tongLabel || key.replace(/_/g, ' ');
+                        
+                        // Convert trunks to array for processing
+                        const trunks = entry.trunks ? (Array.isArray(entry.trunks) ? entry.trunks : Object.values(entry.trunks)) : [];
+                        const validTrunks = trunks.filter(t => t);
+
+                        // FIX: Better End Time Detection
+                        let displayEnd = "N/A";
+                        if (entry.endAMPM) {
+                            displayEnd = entry.endAMPM;
+                        } else if (validTrunks.length > 0) {
+                            // Fallback: take the end time of the very last trunk recorded
+                            const lastTrunk = validTrunks[validTrunks.length - 1];
+                            displayEnd = formatAMPM(lastTrunk.endTime);
+                        }
+
+                        const counts = {};
+                        validTrunks.forEach(t => { 
+                            if (t && t.operatorName) counts[t.operatorName] = (counts[t.operatorName] || 0) + 1; 
+                        });
+                        
+                        const pilotString = Object.entries(counts).map(([name, count]) => `${name} (${count})`).join(', ');
+
                         const card = document.createElement('div');
                         card.className = 'data-card';
                         card.innerHTML = `
-                            <div style="font-weight:700; color:var(--text-heading)">${entry.tongLabel}</div>
-                            <div style="font-size:12px; margin:5px 0;">Pilots: ${
-                                entry.trunks ? (() => {
-                                    const counts = {};
-                                    const trunkList = Array.isArray(entry.trunks) ? entry.trunks : Object.values(entry.trunks);
-                                    trunkList.forEach(t => { if (t && t.operatorName) counts[t.operatorName] = (counts[t.operatorName] || 0) + 1; });
-                                    return Object.entries(counts).map(([name, count]) => `${name} (${count})`).join(', ');
-                                })() : ""
-                            }</div>
-                            <div style="color:var(--text-body); font-size: 11px;">Sync End: ${entry.endAMPM || ""}</div>
+                            <div style="font-weight:700; color:var(--text-heading)">${label}</div>
+                            <div style="font-size:12px; margin:5px 0;">Pilots: ${pilotString || "No data"}</div>
+                            <div style="color:var(--text-body); font-size: 11px;">Sync End: ${displayEnd}</div>
                         `;
                         feed.appendChild(card);
                     });
@@ -754,65 +789,76 @@
             body.innerHTML = html || "<tr><td colspan='12'>No data rows generated.</td></tr>";
         });
     }
-
-    function saveTableEdits() {
+async function saveTableEdits() {
         const r = document.getElementById('robotId').value;
-        const d = document.getElementById('opDate').value;
+        const mainUiDate = document.getElementById('opDate').value; 
         const rows = document.querySelectorAll('#historyBody tr');
         let updates = {};
-        rows.forEach(row => {
+        let pathsToDelete = [];
+        const sf = ["st", "nd", "rd", "th", "th", "th", "th", "th"];
+
+        for (const row of rows) {
             const c = row.cells;
-            if (c.length < 4) return;
+            if (c.length < 12) continue;
+
             const leftName = c[0].innerText.trim();
             const rightName = c[1].innerText.trim();
-            const tong = parseInt(c[2].innerText.trim());
-            const trunk = parseInt(c[3].innerText.trim());
-            if (!tong || !trunk) return;
-            const label = `${tong}${suffixes[tong-1]} Tong`;
-            const pathKey = label.replace(/ /g, '_');
-
-            const parseTime = (text) => {
-                if (!text) return null;
-                const timeMatch = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                if (!timeMatch) return null;
-                let h = parseInt(timeMatch[1]);
-                const m = timeMatch[2];
-                const p = timeMatch[3].toUpperCase();
-                if (p === "PM" && h < 12) h += 12;
-                if (p === "AM" && h === 12) h = 0;
-                return `${String(h).padStart(2, '0')}:${m}`;
+            const tongNum = parseInt(c[2].innerText.trim());
+            const trunkNum = parseInt(c[3].innerText.trim());
+            
+            const getPathDate = (cellText) => {
+                const match = cellText.match(/([a-zA-Z]+ \d{1,2}, \d{4})/);
+                if (!match) return null;
+                const d = new Date(match[1]);
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             };
 
-            if (leftName) {
-                const s = parseTime(c[4].innerText);
-                const e = parseTime(c[5].innerText);
-                if (s && e) {
-                    updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = {
-                        operatorName: leftName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
-                    };
-                    updates[`logs/${r}/${d}/left/${pathKey}/endAMPM`] = formatAMPM(e);
-                    updates[`logs/${r}/${d}/left/${pathKey}/duration`] = calculateDuration(s, e);
-                }
-            }
-            if (rightName) {
-                const s = parseTime(c[6].innerText);
-                const e = parseTime(c[7].innerText);
-                if (s && e) {
-                    updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = {
-                        operatorName: rightName, tongNumber: tong, trunkNumber: trunk, startTime: s, endTime: e, duration: calculateDuration(s, e)
-                    };
-                    updates[`logs/${r}/${d}/right/${pathKey}/endAMPM`] = formatAMPM(e);
-                    updates[`logs/${r}/${d}/right/${pathKey}/duration`] = calculateDuration(s, e);
-                }
-            }
-        });
-        db.ref().update(updates).then(() => {
-            alert("Changes saved successfully!");
-            showAllOperations();
-            loadRobotData();
-        });
-    }
+            const parseTime24 = (text) => {
+                const match = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                if (!match) return null;
+                let h = parseInt(match[1]);
+                if (match[3].toUpperCase() === "PM" && h < 12) h += 12;
+                if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
+                return `${String(h).padStart(2, '0')}:${match[2]}`;
+            };
 
+            const labelStr = tongNum + sf[tongNum-1] + " Tong";
+            const folderKey = labelStr.replace(/ /g, '_');
+
+            const processSide = (name, startCell, endCell, side) => {
+                const rowDate = getPathDate(startCell.innerText);
+                const s = parseTime24(startCell.innerText);
+                const e = parseTime24(endCell.innerText);
+                if (name && rowDate && s && e) {
+                    const path = `logs/${r}/${rowDate}/${side}/${folderKey}`;
+                    const ampm = formatAMPM(e);
+                    
+                    updates[`${path}/tongLabel`] = labelStr;
+                    updates[`${path}/endAMPM`] = ampm; // FORCE SAVE SYNC END
+                    updates[`${path}/duration`] = calculateDuration(s, e);
+                    updates[`${path}/trunks/${trunkNum-1}`] = { 
+                        operatorName: name, tongNumber: tongNum, trunkNumber: trunkNum, 
+                        startTime: s, endTime: e, duration: calculateDuration(s, e) 
+                    };
+                    
+                    if (rowDate !== mainUiDate) {
+                        pathsToDelete.push(`logs/${r}/${mainUiDate}/${side}/${folderKey}/trunks/${trunkNum-1}`);
+                    }
+                }
+            };
+
+            processSide(leftName, c[4], c[5], 'left');
+            processSide(rightName, c[6], c[7], 'right');
+        }
+
+        try {
+            await db.ref().update(updates);
+            for (const p of pathsToDelete) await db.ref(p).remove();
+            alert("Database Synced Successfully.");
+            location.reload(); 
+        } catch (err) { alert("Sync Error."); }
+    }
+    
     function filterHistoryTable() {
         const query = document.getElementById('historySearch').value.toLowerCase();
         document.querySelectorAll('#historyBody tr').forEach(row => {
