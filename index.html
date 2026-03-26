@@ -873,7 +873,7 @@ async function saveTableEdits() {
         try {
             await db.ref().update(updates);
             for (const p of pathsToDelete) await db.ref(p).remove();
-            alert("Database Synced Successfully.");
+            alert("Saved Successfully.");
             location.reload(); 
         } catch (err) { alert("Sync Error."); }
     }
