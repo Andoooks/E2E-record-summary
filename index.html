@@ -406,6 +406,7 @@
         <button class="btn-summary" onclick="showSummary()">View Summary</button>
         <button class="btn-detailed-summary" onclick="showCycleMetrics()">ARES Tong Cycle</button> <button class="btn-history" onclick="showAllOperations()">Show Data</button> 
         <button class="btn-reset-cycle" onclick="doubleWarningReset()">Reset Cycle</button>
+        <button class="btn-history" style="background: #8b5cf6; color: white;" onclick="showTopOperators()">Top Operators</button>
     </div>
 
     <div id="summaryDisplay" contenteditable="false"></div> <div class="training-section">
@@ -503,7 +504,7 @@
         "Miguel Barrienuevo": { shift: 5, batch: 1 }, "Trisha Linda": { shift: 5, batch: 2 }, "Danica Fuderanan": { shift: 5, batch: 2 },
         "Jenny Faustino": { shift: 5, batch: 2 }, "Marinela Devio": { shift: 5, batch: 2 }, "Christian Leona": { shift: 5, batch: 2 },
         "Von Aguilar": { shift: 5, batch: 2 }, "Via De Ocampo": { shift: 5, batch: 3 }, "Naethan Alsola": { shift: 6, batch: 1 },
-        "Russell Nolasco": { shift: 6, batch: 2 }, "Jorge Geronimo": { shift: 6, batch: 1 }, "Jaslyn Alano": { shift: 6, batch: 2 },
+        "King Russell Nolasco": { shift: 6, batch: 2 }, "Jorge Geronimo": { shift: 6, batch: 1 }, "Jaslyn Alano": { shift: 6, batch: 2 },
         "Laila Fuelas": { shift: 6, batch: 2 }, "Jasmine Balatico": { shift: 6, batch: 3 }, "Wendell Reformado": { shift: 6, batch: 3 },
         "Dane Cuenca": { shift: 6, batch: 3 }
     };
@@ -564,6 +565,82 @@
             body.innerHTML = html;
         });
     }
+
+    function showTopOperators() {
+    const robot = document.getElementById('robotId').value;
+    const body = document.getElementById('trainingBody'); // We'll reuse the training table area for display
+    const notice = document.getElementById('realtimeNotice');
+    
+    notice.innerText = `Analyzing Performance for ${robot}...`;
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px;">Scanning Robot logs for top performers...</td></tr>';
+
+    db.ref(`logs/${robot}`).once('value').then(snapshot => {
+        const robotData = snapshot.val();
+        if (!robotData) {
+            alert(`No historical data found for ${robot}.`);
+            return;
+        }
+
+        const stats = {};
+
+        // Loop through all dates for THIS specific robot
+        Object.values(robotData).forEach(dateEntry => {
+            ['left', 'right'].forEach(side => {
+                if (dateEntry[side]) {
+                    Object.values(dateEntry[side]).forEach(tongEntry => {
+                        if (tongEntry.trunks) {
+                            const trunks = Array.isArray(tongEntry.trunks) ? tongEntry.trunks : Object.values(tongEntry.trunks);
+                            trunks.forEach(t => {
+                                if (t && t.operatorName && t.duration !== "0:00:00") {
+                                    if (!stats[t.operatorName]) {
+                                        stats[t.operatorName] = { totalSecs: 0, count: 0 };
+                                    }
+                                    stats[t.operatorName].totalSecs += durToSecs(t.duration);
+                                    stats[t.operatorName].count += 1;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        });
+
+        // Calculate Averages and Sort
+        let ranking = Object.entries(stats)
+            .map(([name, data]) => ({
+                name,
+                avgSecs: data.totalSecs / data.count,
+                totalTrunks: data.count
+            }))
+            .filter(op => op.totalTrunks >= 5) // Optional: Only show operators with at least 5 trunks recorded
+            .sort((a, b) => a.avgSecs - b.avgSecs) // Lowest time (fastest) first
+            .slice(0, 5); // Take Top 5
+
+        if (ranking.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;">Insufficient data for ranking.</td></tr>';
+            return;
+        }
+
+        // Update UI
+        notice.innerText = `Top 5 Fastest Operators: ${robot}`;
+        let html = "";
+        ranking.forEach((op, index) => {
+            const medal = ["1st) ", "2nd) ", "3rd) ", "4th) ", "5th) "];
+            html += `
+                <tr style="${index === 0 ? 'background: #fefce8;' : ''}">
+                    <td><b>${medal[index]} ${op.name}</b></td>
+                    <td style="color:var(--primary); font-weight:700;">${secsToDur(Math.round(op.avgSecs))} /avg</td>
+                    <td>Shift ${operatorData[op.name]?.shift || 'N/A'}</td>
+                    <td>Batch ${operatorData[op.name]?.batch || 'N/A'}</td>
+                    <td>${op.totalTrunks} Trunks Total</td>
+                </tr>`;
+        });
+        body.innerHTML = html;
+        
+        // Scroll to the table so the user sees the result
+        document.querySelector('.training-section').scrollIntoView({ behavior: 'smooth' });
+    });
+}
 
     function updateDateInput() { 
         const dateInput = document.getElementById('opDate');
@@ -639,57 +716,73 @@
     const e = document.getElementById(`end-${side}`).value;
     const robot = document.getElementById('robotId').value;
     
-    // LOGIC CHANGE: Get today's actual date
+    // UI Elements for indexing
+    const tongElem = document.getElementById(`tong-${side}`);
+    const trunkElem = document.getElementById(`trunk-${side}`);
+    const tongText = tongElem.options[tongElem.selectedIndex].text.replace(/ /g, '_');
+    const tongVal = parseInt(tongElem.value);
+    const trunkVal = parseInt(trunkElem.value);
+
+    // Get today's actual date for the database path
     let now = new Date();
-    let year = now.getFullYear();
-    let month = String(now.getMonth() + 1).padStart(2, '0');
-    let day = String(now.getDate()).padStart(2, '0');
-    let autoDate = `${year}-${month}-${day}`;
+    let autoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     if(!p || !s || !e) return alert("System requires full parameters before entry.");
-    document.getElementById(`btn-${side}`).innerText = "SYNCING...";
-
-    // Use autoDate for the path instead of the static UI date
-    const path = `logs/${robot}/${autoDate}/${side}/${document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text.replace(/ /g, '_')}`;
     
-    db.ref(path).once('value').then(snap => {
-        let data = snap.val() || { 
-            tongLabel: document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text, 
-            rawStart: s, 
-            pilotStats: {}, 
-            trunks: [] 
-        };
-        
-        data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
-        data.endAMPM = formatAMPM(e);
-        data.rawEnd = e;
-        // We pass autoDate here so the duration handles midnight crossing correctly
-        data.duration = calculateDuration(s, e); 
-        
-        if(!data.trunks) data.trunks = [];
-        data.trunks.push({
-            operatorName: p, 
-            tongNumber: parseInt(document.getElementById(`tong-${side}`).value), 
-            trunkNumber: parseInt(document.getElementById(`trunk-${side}`).value),
-            startTime: s, 
-            endTime: e, 
-            duration: calculateDuration(s, e)
-        });
-        return db.ref(path).set(data);
-    }).then(() => {
-        // UI Updates
+    // Visual Feedback
+    const btn = document.getElementById(`btn-${side}`);
+    btn.innerText = "SYNCING...";
+    btn.disabled = true; // Prevent double-clicking
+
+    const path = `logs/${robot}/${autoDate}/${side}/${tongText}`;
+    const duration = calculateDuration(s, e);
+    const ampm = formatAMPM(e);
+
+    // Prepare the new trunk object
+    const newTrunk = {
+        operatorName: p, 
+        tongNumber: tongVal, 
+        trunkNumber: trunkVal,
+        startTime: s, 
+        endTime: e, 
+        duration: duration
+    };
+
+    // ATOMIC UPDATE: We push the trunk and update the header in one go
+    // This bypasses the need for .once('value') which causes the lag
+    const trunkRef = db.ref(`${path}/trunks`).push();
+    
+    const updates = {};
+    updates[`${path}/trunks/${trunkRef.key}`] = newTrunk;
+    updates[`${path}/tongLabel`] = tongElem.options[tongElem.selectedIndex].text;
+    updates[`${path}/endAMPM`] = ampm;
+    updates[`${path}/rawEnd`] = e;
+    updates[`${path}/duration`] = duration;
+
+    db.ref().update(updates).then(() => {
+        // SUCCESS: Handle UI Logic
         document.getElementById(`start-${side}`).value = e;
-        if(document.getElementById(`trunk-${side}`).selectedIndex < 8) {
-            document.getElementById(`trunk-${side}`).selectedIndex++;
-        } else if(document.getElementById(`tong-${side}`).selectedIndex < 7) { 
-            document.getElementById(`tong-${side}`).selectedIndex++; 
-            document.getElementById(`trunk-${side}`).selectedIndex = 0; 
-        }
-        document.getElementById(`btn-${side}`).innerText = "Submit Entry";
         
-        // Refresh the feed using today's date
+        // Auto-increment logic
+        if(trunkElem.selectedIndex < 8) {
+            trunkElem.selectedIndex++;
+        } else if(tongElem.selectedIndex < 7) { 
+            tongElem.selectedIndex++; 
+            trunkElem.selectedIndex = 0; 
+        }
+
+        // Reset Button
+        btn.innerText = "Submit Entry";
+        btn.disabled = false;
+        
+        // Force refresh the UI date to today to see the new entry
         document.getElementById('opDate').value = autoDate;
         loadRobotData(); 
+    }).catch(err => {
+        console.error("Firebase Error:", err);
+        alert("Sync failed. Check connection.");
+        btn.innerText = "Retry Submit";
+        btn.disabled = false;
     });
 }
 
