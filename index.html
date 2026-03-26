@@ -897,23 +897,60 @@ async function saveTableEdits() {
         }
     }
 
-    function showSummary() {
-        const r = document.getElementById('robotId').value;
-        const d = document.getElementById('opDate').value;
-        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
-            const data = snap.val(); if(!data) return alert("Empty cycle data.");
-            let report = `<h3 style="margin-bottom:15px">Pilot Deployment Logs: UNIT ${r} | DATE ${d}</h3><pre style="font-family: monospace; white-space: pre-wrap; font-size:12px">`;
-            ['left', 'right'].forEach(side => {
-                report += `[${side.toUpperCase()} ARM]:\n`;
-                if(data[side]) Object.values(data[side]).forEach(t => {
-                    report += `${t.tongLabel}: End ${t.endAMPM} | Time: ${t.duration}\n Pilot Logs: ${Object.keys(t.pilotStats || {}).join(', ')}\n\n`;
+   function showSummary() {
+    const r = document.getElementById('robotId').value;
+    const d = document.getElementById('opDate').value;
+    
+    db.ref(`logs/${r}/${d}`).once('value').then(snap => {
+        const data = snap.val(); 
+        if(!data) return alert("No data found for this selection.");
+
+        let report = `<h3 style="margin-bottom:15px">Pilot Deployment Logs: UNIT ${r} | DATE ${d}</h3>`;
+        report += `<pre style="font-family: 'Plus Jakarta Sans', sans-serif; white-space: pre-wrap; font-size:13px; background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">`;
+
+        ['left', 'right'].forEach(side => {
+            report += `<strong style="color:var(--primary)">[${side.toUpperCase()} ARM]</strong>\n`;
+            
+            if(data[side]) {
+                const tongKeys = Object.keys(data[side]).sort();
+                
+                tongKeys.forEach(key => {
+                    const t = data[side][key];
+                    if (!t || !t.trunks) return;
+
+                    const label = t.tongLabel || key.replace(/_/g, ' ');
+                    const trunkList = Array.isArray(t.trunks) ? t.trunks : Object.values(t.trunks);
+                    
+                    let totalSeconds = 0;
+                    let pilotsSet = new Set();
+                    let lastEndTime = "N/A";
+
+                    trunkList.forEach(trunk => {
+                        if (trunk) {
+                            // Sum the duration of each trunk
+                            totalSeconds += durToSecs(trunk.duration);
+                            if (trunk.operatorName) pilotsSet.add(trunk.operatorName);
+                            lastEndTime = formatAMPM(trunk.endTime);
+                        }
+                    });
+
+                    const displayDuration = secsToDur(totalSeconds);
+                    const pilots = pilotsSet.size > 0 ? Array.from(pilotsSet).join(', ') : "No Pilot Assigned";
+
+                    report += ` ${label}: End ${lastEndTime} | Total Running Time: ${displayDuration}\n`;
+                    report += `  Pilots: ${pilots}\n\n`;
                 });
-            });
-            report += "</pre>";
-            const disp = document.getElementById('summaryDisplay');
-            disp.innerHTML = report; disp.style.display = 'block';
+            } else {
+                report += `No data recorded for this side.\n\n`;
+            }
         });
-    }
+
+        report += "</pre>";
+        const disp = document.getElementById('summaryDisplay');
+        disp.innerHTML = report; 
+        disp.style.display = 'block';
+    });
+}
 
     // HELPER: Convert "0:00:00" to seconds
     function durToSecs(dur) {
@@ -1052,11 +1089,11 @@ async function saveTableEdits() {
                 <div style="margin-bottom:20px">ARES DEPLOYMENT SUMMARY & METRICS:</div>
                 ${overallMetricsHtml}
                 <div style="display: grid; grid-template-columns: 1fr; gap: 30px">
-                    <div class="side-col left-side" style="padding: 20px 0;"> <h3>● LEFT ARM </h3>
+                    <div class="side-col left-side" style="padding: 20px 0;"> <h3> LEFT ARM </h3>
                         ${leftTable}
                     </div>
                     <div class="side-col right-side" style="padding: 20px 0;">
-                        <h3>● RIGHT ARM </h3>
+                        <h3> RIGHT ARM </h3>
                         ${rightTable}
                     </div>
                 </div>
