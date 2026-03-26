@@ -605,24 +605,16 @@
         document.getElementById('summaryDisplay').style.display = 'none';
     }
 
-    function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
+  function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
     if(!time24) return "";
     const [y, m, d] = baseDateStr.split('-').map(Number);
     let date = new Date(y, m - 1, d);
+    const [h, min] = time24.split(':').map(Number);
+    date.setHours(h, min);
 
-    // Get the hour to check if we are in the early morning of the next day
-    const currentHour = parseInt(time24.split(':')[0]);
-    
-    // Check if the session started late (e.g., after 6 PM) 
-    // and the current entry is early morning (e.g., before 7 AM)
-    const cycleStart = document.getElementById('cycleStartTime').value;
-    const startHour = cycleStart ? parseInt(cycleStart.split(':')[0]) : 0;
-
-    if (startHour >= 18 && currentHour < 7) {
-        // If the cycle started in the evening and current time is AM, it's the next day
-        date.setDate(date.getDate() + 1);
-    } else if (isEndTime && startTime24 && time24 < startTime24) {
-        // Fallback for single-entry midnight crossing
+    // If End Time is numerically "smaller" than Start Time (e.g., 11:50 PM to 00:12 AM)
+    // it belongs to the next calendar day.
+    if (isEndTime && startTime24 && time24 < startTime24) {
         date.setDate(date.getDate() + 1);
     }
 
@@ -642,39 +634,64 @@
     }
 
     function saveToCloud(side) {
-        const p = document.getElementById(`pName-${side}`).value.trim();
-        const s = document.getElementById(`start-${side}`).value;
-        const e = document.getElementById(`end-${side}`).value;
-        const robot = document.getElementById('robotId').value;
-        const d = document.getElementById('opDate').value;
+    const p = document.getElementById(`pName-${side}`).value.trim();
+    const s = document.getElementById(`start-${side}`).value;
+    const e = document.getElementById(`end-${side}`).value;
+    const robot = document.getElementById('robotId').value;
+    
+    // LOGIC CHANGE: Get today's actual date
+    let now = new Date();
+    let year = now.getFullYear();
+    let month = String(now.getMonth() + 1).padStart(2, '0');
+    let day = String(now.getDate()).padStart(2, '0');
+    let autoDate = `${year}-${month}-${day}`;
 
-        if(!p || !s || !e) return alert("System requires full parameters before entry.");
-        document.getElementById(`btn-${side}`).innerText = "SYNCING...";
+    if(!p || !s || !e) return alert("System requires full parameters before entry.");
+    document.getElementById(`btn-${side}`).innerText = "SYNCING...";
 
-        const path = `logs/${robot}/${d}/${side}/${document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text.replace(/ /g, '_')}`;
-        db.ref(path).once('value').then(snap => {
-            let data = snap.val() || { tongLabel: document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text, rawStart: s, pilotStats: {}, trunks: [] };
-            data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
-            data.endAMPM = formatAMPM(e);
-            data.rawEnd = e;
-            data.duration = calculateDuration(data.rawStart, e);
-            if(!data.trunks) data.trunks = [];
-            data.trunks.push({
-                operatorName: p, tongNumber: parseInt(document.getElementById(`tong-${side}`).value), trunkNumber: parseInt(document.getElementById(`trunk-${side}`).value),
-                startTime: s, endTime: e, duration: calculateDuration(s, e)
-            });
-            return db.ref(path).set(data);
-        }).then(() => {
-            document.getElementById(`start-${side}`).value = e;
-            if(document.getElementById(`trunk-${side}`).selectedIndex < 8) document.getElementById(`trunk-${side}`).selectedIndex++;
-            else if(document.getElementById(`tong-${side}`).selectedIndex < 7) { 
-                document.getElementById(`tong-${side}`).selectedIndex++; 
-                document.getElementById(`trunk-${side}`).selectedIndex = 0; 
-            }
-            document.getElementById(`btn-${side}`).innerText = "Submit Entry";
-            loadRobotData(); 
+    // Use autoDate for the path instead of the static UI date
+    const path = `logs/${robot}/${autoDate}/${side}/${document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text.replace(/ /g, '_')}`;
+    
+    db.ref(path).once('value').then(snap => {
+        let data = snap.val() || { 
+            tongLabel: document.getElementById(`tong-${side}`).options[document.getElementById(`tong-${side}`).selectedIndex].text, 
+            rawStart: s, 
+            pilotStats: {}, 
+            trunks: [] 
+        };
+        
+        data.pilotStats[p] = (data.pilotStats[p] || 0) + 1;
+        data.endAMPM = formatAMPM(e);
+        data.rawEnd = e;
+        // We pass autoDate here so the duration handles midnight crossing correctly
+        data.duration = calculateDuration(s, e); 
+        
+        if(!data.trunks) data.trunks = [];
+        data.trunks.push({
+            operatorName: p, 
+            tongNumber: parseInt(document.getElementById(`tong-${side}`).value), 
+            trunkNumber: parseInt(document.getElementById(`trunk-${side}`).value),
+            startTime: s, 
+            endTime: e, 
+            duration: calculateDuration(s, e)
         });
-    }
+        return db.ref(path).set(data);
+    }).then(() => {
+        // UI Updates
+        document.getElementById(`start-${side}`).value = e;
+        if(document.getElementById(`trunk-${side}`).selectedIndex < 8) {
+            document.getElementById(`trunk-${side}`).selectedIndex++;
+        } else if(document.getElementById(`tong-${side}`).selectedIndex < 7) { 
+            document.getElementById(`tong-${side}`).selectedIndex++; 
+            document.getElementById(`trunk-${side}`).selectedIndex = 0; 
+        }
+        document.getElementById(`btn-${side}`).innerText = "Submit Entry";
+        
+        // Refresh the feed using today's date
+        document.getElementById('opDate').value = autoDate;
+        loadRobotData(); 
+    });
+}
 
     let currentListener = null;
 
@@ -789,6 +806,8 @@
             body.innerHTML = html || "<tr><td colspan='12'>No data rows generated.</td></tr>";
         });
     }
+
+    
 async function saveTableEdits() {
         const r = document.getElementById('robotId').value;
         const mainUiDate = document.getElementById('opDate').value; 
