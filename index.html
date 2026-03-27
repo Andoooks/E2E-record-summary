@@ -716,29 +716,25 @@
     const e = document.getElementById(`end-${side}`).value;
     const robot = document.getElementById('robotId').value;
     
-    // UI Elements for indexing
     const tongElem = document.getElementById(`tong-${side}`);
     const trunkElem = document.getElementById(`trunk-${side}`);
     const tongText = tongElem.options[tongElem.selectedIndex].text.replace(/ /g, '_');
     const tongVal = parseInt(tongElem.value);
     const trunkVal = parseInt(trunkElem.value);
 
-    // Get today's actual date for the database path
     let now = new Date();
     let autoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     if(!p || !s || !e) return alert("System requires full parameters before entry.");
     
-    // Visual Feedback
     const btn = document.getElementById(`btn-${side}`);
     btn.innerText = "SYNCING...";
-    btn.disabled = true; // Prevent double-clicking
+    btn.disabled = true;
 
     const path = `logs/${robot}/${autoDate}/${side}/${tongText}`;
     const duration = calculateDuration(s, e);
     const ampm = formatAMPM(e);
 
-    // Prepare the new trunk object
     const newTrunk = {
         operatorName: p, 
         tongNumber: tongVal, 
@@ -748,22 +744,21 @@
         duration: duration
     };
 
-    // ATOMIC UPDATE: We push the trunk and update the header in one go
-    // This bypasses the need for .once('value') which causes the lag
-    const trunkRef = db.ref(`${path}/trunks`).push();
+    // --- THE FIX IS HERE ---
+    // Instead of .push(), we use the Trunk Number as the ID.
+    // This ensures Trunk 1 is always 'trunks/1', preventing the "10 trunks" error.
+    const trunkId = trunkVal; 
     
     const updates = {};
-    updates[`${path}/trunks/${trunkRef.key}`] = newTrunk;
+    updates[`${path}/trunks/${trunkId}`] = newTrunk;
     updates[`${path}/tongLabel`] = tongElem.options[tongElem.selectedIndex].text;
     updates[`${path}/endAMPM`] = ampm;
     updates[`${path}/rawEnd`] = e;
     updates[`${path}/duration`] = duration;
 
     db.ref().update(updates).then(() => {
-        // SUCCESS: Handle UI Logic
         document.getElementById(`start-${side}`).value = e;
         
-        // Auto-increment logic
         if(trunkElem.selectedIndex < 8) {
             trunkElem.selectedIndex++;
         } else if(tongElem.selectedIndex < 7) { 
@@ -771,21 +766,18 @@
             trunkElem.selectedIndex = 0; 
         }
 
-        // Reset Button
         btn.innerText = "Submit Entry";
         btn.disabled = false;
         
-        // Force refresh the UI date to today to see the new entry
         document.getElementById('opDate').value = autoDate;
         loadRobotData(); 
     }).catch(err => {
         console.error("Firebase Error:", err);
-        alert("Sync failed. Check connection.");
+        alert("Sync failed.");
         btn.innerText = "Retry Submit";
         btn.disabled = false;
     });
 }
-
     let currentListener = null;
 
    function loadRobotData() {
@@ -803,39 +795,37 @@
                 const feed = document.getElementById(`feed-${side}`);
                 feed.innerHTML = "";
                 if (data[side]) {
+                    // Sort keys so 1st Tong stays at the bottom and newest appears at top
                     Object.keys(data[side]).sort().reverse().forEach(key => {
                         const entry = data[side][key];
+                        // Ensure we have a valid label from the database or the folder key
                         const label = entry.tongLabel || key.replace(/_/g, ' ');
                         
-                        // Convert trunks to array for processing
                         const trunks = entry.trunks ? (Array.isArray(entry.trunks) ? entry.trunks : Object.values(entry.trunks)) : [];
                         const validTrunks = trunks.filter(t => t);
 
-                        // FIX: Better End Time Detection
-                        let displayEnd = "N/A";
-                        if (entry.endAMPM) {
-                            displayEnd = entry.endAMPM;
-                        } else if (validTrunks.length > 0) {
-                            // Fallback: take the end time of the very last trunk recorded
+                        // Only show the card if there is actual data in this Tong
+                        if (validTrunks.length > 0) {
+                            const counts = {};
+                            validTrunks.forEach(t => { 
+                                if (t && t.operatorName) counts[t.operatorName] = (counts[t.operatorName] || 0) + 1; 
+                            });
+                            
+                            const pilotString = Object.entries(counts).map(([name, count]) => `${name} (${count})`).join(', ');
                             const lastTrunk = validTrunks[validTrunks.length - 1];
-                            displayEnd = formatAMPM(lastTrunk.endTime);
+                            const displayEnd = formatAMPM(lastTrunk.endTime);
+
+                            const card = document.createElement('div');
+                            card.className = 'data-card';
+                            // Fix: Use a border color to distinguish between Tongs
+                            card.style.borderLeft = `4px solid ${side === 'left' ? 'var(--accent-left)' : 'var(--accent-right)'}`;
+                            card.innerHTML = `
+                                <div style="font-weight:700; color:var(--text-heading)">${label}</div>
+                                <div style="font-size:12px; margin:5px 0;">Pilots: ${pilotString}</div>
+                                <div style="color:var(--text-body); font-size: 11px;">Sync End: ${displayEnd}</div>
+                            `;
+                            feed.appendChild(card);
                         }
-
-                        const counts = {};
-                        validTrunks.forEach(t => { 
-                            if (t && t.operatorName) counts[t.operatorName] = (counts[t.operatorName] || 0) + 1; 
-                        });
-                        
-                        const pilotString = Object.entries(counts).map(([name, count]) => `${name} (${count})`).join(', ');
-
-                        const card = document.createElement('div');
-                        card.className = 'data-card';
-                        card.innerHTML = `
-                            <div style="font-weight:700; color:var(--text-heading)">${label}</div>
-                            <div style="font-size:12px; margin:5px 0;">Pilots: ${pilotString || "No data"}</div>
-                            <div style="color:var(--text-body); font-size: 11px;">Sync End: ${displayEnd}</div>
-                        `;
-                        feed.appendChild(card);
                     });
                 }
             });
@@ -843,133 +833,171 @@
     }
 
     function showAllOperations() {
-        const r = document.getElementById('robotId').value;
-        const d = document.getElementById('opDate').value;
-        const body = document.getElementById('historyBody');
-        const popup = document.getElementById('historyPopup');
-        if (!body || !popup) return;
-        body.innerHTML = "<tr><td colspan='12'>Accessing cloud archives...</td></tr>";
-        popup.style.display = 'block';
-        db.ref(`logs/${r}/${d}`).once('value').then(snap => {
-            const data = snap.val();
-            if (!data) { body.innerHTML = "<tr><td colspan='12'>No archives found for selected date.</td></tr>"; return; }
-            body.innerHTML = ""; 
-            let grouped = {};
-            ['left', 'right'].forEach(side => {
-                if (data[side]) {
-                    Object.values(data[side]).forEach(t => {
-                        if (t && t.trunks) {
-                             const trunkList = Array.isArray(t.trunks) ? t.trunks : Object.values(t.trunks);
-                            trunkList.forEach(e => {
-                                 if (!e) return;
-                                 const k = `${e.tongNumber}-${e.trunkNumber}-${d}-${e.startTime}`;
-                                 if (!grouped[k]) { grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber }; }
-                                grouped[k][side] = e;
-                            });
-                        }
-                    });
-                }
-            });
-            const sortedKeys = Object.keys(grouped).sort((a, b) => {
-                const partsA = a.split('-');
-                const partsB = b.split('-');
-                const tA = parseInt(partsA[0]) || 0; 
-                const trA = parseInt(partsA[1]) || 0;
-                const tB = parseInt(partsB[0]) || 0;
-                const trB = parseInt(partsB[1]) || 0;
-                if (tA !== tB) return tA - tB;
-                return trA - trB;
-            });
-            let html = "";
-            sortedKeys.forEach(k => {
-                const i = grouped[k]; const l = i.left || {}; const rSide = i.right || {};
-                html += `<tr>
-                    <td contenteditable="true">${l.operatorName || ""}</td>
-                    <td contenteditable="true">${rSide.operatorName || ""}</td>
-                    <td>${i.tong}</td><td>${i.trunk}</td>
-                    <td contenteditable="true">${l.startTime ? getFullDateTimeStr(d, l.startTime) : ""}</td>
-                    <td contenteditable="true">${l.endTime ? getFullDateTimeStr(d, l.endTime, true, l.startTime) : ""}</td>
-                    <td contenteditable="true">${rSide.startTime ? getFullDateTimeStr(d, rSide.startTime) : ""}</td>
-                    <td contenteditable="true">${rSide.endTime ? getFullDateTimeStr(d, rSide.endTime, true, rSide.startTime) : ""}</td>
-                    <td>${l.duration || "0:00:00"}</td><td>${rSide.duration || "0:00:00"}</td>
-                    <td>0:00:00</td><td>0:00:00</td>
-                    <td><button style="background:#fff1f2; color:#e11d48; padding:5px 10px; border-radius:4px" onclick="deleteEntry(${i.tong}, ${i.trunk})">DEL</button></td>
-                </tr>`;
-            });
-            body.innerHTML = html || "<tr><td colspan='12'>No data rows generated.</td></tr>";
+    const r = document.getElementById('robotId').value;
+    const d = document.getElementById('opDate').value;
+    const body = document.getElementById('historyBody');
+    const popup = document.getElementById('historyPopup');
+    if (!body || !popup) return;
+
+    body.innerHTML = "<tr><td colspan='12' style='text-align:center; padding:20px;'>Syncing with Cloud...</td></tr>";
+    popup.style.display = 'block';
+
+    db.ref(`logs/${r}/${d}`).once('value').then(snap => {
+        const data = snap.val();
+        body.innerHTML = ""; 
+        if (!data) { 
+            body.innerHTML = "<tr><td colspan='12'>No archives found.</td></tr>"; 
+            return; 
+        }
+
+        let grouped = {};
+        ['left', 'right'].forEach(side => {
+            if (data[side]) {
+                Object.values(data[side]).forEach(tongRecord => {
+                    if (tongRecord && tongRecord.trunks) {
+                        // Get the keys (the unique Firebase IDs) and the values (the trunk data)
+                        const entries = Object.entries(tongRecord.trunks);
+                        entries.forEach(([firebaseId, e]) => {
+                            if (!e) return;
+                            const k = `T${e.tongNumber}-Tr${e.trunkNumber}`;
+                            if (!grouped[k]) grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber };
+                            
+                            // Store the Firebase ID so we can delete it later
+                            grouped[k][side] = { ...e, fId: firebaseId };
+                        });
+                    }
+                });
+            }
         });
+
+        const sortedKeys = Object.keys(grouped).sort((a, b) => {
+            const itemA = grouped[a], itemB = grouped[b];
+            return itemA.tong !== itemB.tong ? itemA.tong - itemB.tong : itemA.trunk - itemB.trunk;
+        });
+
+        let lastEndL = null, lastEndR = null, html = "";
+        sortedKeys.forEach(k => {
+            const i = grouped[k], l = i.left || {}, rS = i.right || {};
+            
+            let gapL = "0:00:00", gapR = "0:00:00";
+            if (lastEndL && l.startTime) { let g = calculateGapSeconds(lastEndL, l.startTime); if(g>0) gapL = secsToDur(g); }
+            if (lastEndR && rS.startTime) { let g = calculateGapSeconds(lastEndR, rS.startTime); if(g>0) gapR = secsToDur(g); }
+            lastEndL = l.endTime || lastEndL; lastEndR = rS.endTime || lastEndR;
+
+            // Pass the unique Firebase IDs to the delete function
+            const deleteParams = `'${i.tong}', '${l.fId || ""}', '${rS.fId || ""}'`;
+
+            html += `<tr>
+                <td contenteditable="true">${l.operatorName || ""}</td>
+                <td contenteditable="true">${rS.operatorName || ""}</td>
+                <td>${i.tong}</td><td>${i.trunk}</td>
+                <td contenteditable="true">${l.startTime ? getFullDateTimeStr(d, l.startTime) : ""}</td>
+                <td contenteditable="true">${l.endTime ? getFullDateTimeStr(d, l.endTime, true, l.startTime) : ""}</td>
+                <td contenteditable="true">${rS.startTime ? getFullDateTimeStr(d, rS.startTime) : ""}</td>
+                <td contenteditable="true">${rS.endTime ? getFullDateTimeStr(d, rS.endTime, true, rS.startTime) : ""}</td>
+                <td>${l.duration || "0:00:00"}</td><td>${rS.duration || "0:00:00"}</td>
+                <td style="color:${gapL!=="0:00:00"?'var(--danger)':'inherit'}">${gapL}</td>
+                <td style="color:${gapR!=="0:00:00"?'var(--danger)':'inherit'}">${gapR}</td>
+                <td><button style="background:#fff1f2; color:#e11d48; padding:5px 10px; border-radius:4px" 
+                    onclick="deleteEntry(${deleteParams})">DEL</button></td>
+            </tr>`;
+        });
+        body.innerHTML = html;
+    });
+}
+
+    // Ensure this helper is available in your script
+    function calculateGapSeconds(prevEnd, currStart) {
+        const s = new Date(0,0,0, ...prevEnd.split(':'));
+        const e = new Date(0,0,0, ...currStart.split(':'));
+        if (e < s) e.setDate(e.getDate() + 1);
+        return Math.floor((e - s) / 1000);
     }
 
     
 async function saveTableEdits() {
-        const r = document.getElementById('robotId').value;
-        const mainUiDate = document.getElementById('opDate').value; 
-        const rows = document.querySelectorAll('#historyBody tr');
-        let updates = {};
-        let pathsToDelete = [];
-        const sf = ["st", "nd", "rd", "th", "th", "th", "th", "th"];
+    const r = document.getElementById('robotId').value;
+    const mainUiDate = document.getElementById('opDate').value;
+    const rows = document.querySelectorAll('#historyBody tr');
+    const saveBtn = document.getElementById('btn-save-edit');
+    
+    saveBtn.innerText = "SAVING...";
+    saveBtn.disabled = true;
 
-        for (const row of rows) {
-            const c = row.cells;
-            if (c.length < 12) continue;
+    let updates = {};
 
-            const leftName = c[0].innerText.trim();
-            const rightName = c[1].innerText.trim();
-            const tongNum = parseInt(c[2].innerText.trim());
-            const trunkNum = parseInt(c[3].innerText.trim());
-            
-            const getPathDate = (cellText) => {
-                const match = cellText.match(/([a-zA-Z]+ \d{1,2}, \d{4})/);
-                if (!match) return null;
-                const d = new Date(match[1]);
-                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    rows.forEach(row => {
+        const c = row.cells;
+        if (c.length < 12) return;
+
+        const leftName = c[0].innerText.trim();
+        const rightName = c[1].innerText.trim();
+        const tongNum = parseInt(c[2].innerText);
+        const trunkNum = parseInt(c[3].innerText); // This is our key (e.g., 1, 2, 3)
+        
+        const parseTimeFromCell = (cellText) => {
+            const match = cellText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            if (!match) return null;
+            let h = parseInt(match[1]);
+            const m = match[2];
+            const ampm = match[3].toUpperCase();
+            if (ampm === "PM" && h < 12) h += 12;
+            if (ampm === "AM" && h === 12) h = 0;
+            return `${String(h).padStart(2, '0')}:${m}`;
+        };
+
+        const lStart = parseTimeFromCell(c[4].innerText);
+        const lEnd = parseTimeFromCell(c[5].innerText);
+        const rStart = parseTimeFromCell(c[6].innerText);
+        const rEnd = parseTimeFromCell(c[7].innerText);
+
+        const folderKey = `${tongNum}${suffixes[tongNum-1]}_Tong`.replace(/ /g, '_');
+
+        // Build Left Update - Targeting the numeric trunkNum ID
+        if (lStart && lEnd) {
+            const pathL = `logs/${r}/${mainUiDate}/left/${folderKey}`;
+            updates[`${pathL}/trunks/${trunkNum}`] = {
+                operatorName: leftName,
+                tongNumber: tongNum,
+                trunkNumber: trunkNum,
+                startTime: lStart,
+                endTime: lEnd,
+                duration: calculateDuration(lStart, lEnd)
             };
-
-            const parseTime24 = (text) => {
-                const match = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                if (!match) return null;
-                let h = parseInt(match[1]);
-                if (match[3].toUpperCase() === "PM" && h < 12) h += 12;
-                if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
-                return `${String(h).padStart(2, '0')}:${match[2]}`;
-            };
-
-            const labelStr = tongNum + sf[tongNum-1] + " Tong";
-            const folderKey = labelStr.replace(/ /g, '_');
-
-            const processSide = (name, startCell, endCell, side) => {
-                const rowDate = getPathDate(startCell.innerText);
-                const s = parseTime24(startCell.innerText);
-                const e = parseTime24(endCell.innerText);
-                if (name && rowDate && s && e) {
-                    const path = `logs/${r}/${rowDate}/${side}/${folderKey}`;
-                    const ampm = formatAMPM(e);
-                    
-                    updates[`${path}/tongLabel`] = labelStr;
-                    updates[`${path}/endAMPM`] = ampm; // FORCE SAVE SYNC END
-                    updates[`${path}/duration`] = calculateDuration(s, e);
-                    updates[`${path}/trunks/${trunkNum-1}`] = { 
-                        operatorName: name, tongNumber: tongNum, trunkNumber: trunkNum, 
-                        startTime: s, endTime: e, duration: calculateDuration(s, e) 
-                    };
-                    
-                    if (rowDate !== mainUiDate) {
-                        pathsToDelete.push(`logs/${r}/${mainUiDate}/${side}/${folderKey}/trunks/${trunkNum-1}`);
-                    }
-                }
-            };
-
-            processSide(leftName, c[4], c[5], 'left');
-            processSide(rightName, c[6], c[7], 'right');
+            // Ensure the Tong header stays updated
+            updates[`${pathL}/tongLabel`] = `${tongNum}${suffixes[tongNum-1]} Tong`;
         }
 
-        try {
-            await db.ref().update(updates);
-            for (const p of pathsToDelete) await db.ref(p).remove();
-            alert("Saved Successfully.");
-            location.reload(); 
-        } catch (err) { alert("Sync Error."); }
+        // Build Right Update - Targeting the numeric trunkNum ID
+        if (rStart && rEnd) {
+            const pathR = `logs/${r}/${mainUiDate}/right/${folderKey}`;
+            updates[`${pathR}/trunks/${trunkNum}`] = {
+                operatorName: rightName,
+                tongNumber: tongNum,
+                trunkNumber: trunkNum,
+                startTime: rStart,
+                endTime: rEnd,
+                duration: calculateDuration(rStart, rEnd)
+            };
+            // Ensure the Tong header stays updated
+            updates[`${pathR}/tongLabel`] = `${tongNum}${suffixes[tongNum-1]} Tong`;
+        }
+    });
+
+    try {
+        await db.ref().update(updates);
+        alert("Edits saved. Data alignment verified.");
+        saveBtn.innerText = "SAVE EDITS";
+        saveBtn.disabled = false;
+        
+        showAllOperations();
+        loadRobotData();
+    } catch (err) {
+        console.error("Save Error:", err);
+        alert("Sync Error.");
+        saveBtn.disabled = false;
     }
+}
     
     function filterHistoryTable() {
         const query = document.getElementById('historySearch').value.toLowerCase();
@@ -978,17 +1006,29 @@ async function saveTableEdits() {
         });
     }
 
-    function deleteEntry(tong, trunk) {
-        const r = document.getElementById('robotId').value;
-        const d = document.getElementById('opDate').value;
-        const pathKey = `${tong}${suffixes[tong-1]}_Tong`.replace(/ /g, '_');
-        if (confirm("Permanently remove record?")) {
+   async function deleteEntry(tong, leftId, rightId) {
+    const r = document.getElementById('robotId').value;
+    const d = document.getElementById('opDate').value;
+    const pathKey = `${tong}${suffixes[tong-1]}_Tong`.replace(/ /g, '_');
+
+    if (confirm(`Permanently remove this trunk row?`)) {
+        try {
             const updates = {};
-            updates[`logs/${r}/${d}/left/${pathKey}/trunks/${trunk-1}`] = null;
-            updates[`logs/${r}/${d}/right/${pathKey}/trunks/${trunk-1}`] = null;
-            db.ref().update(updates).then(() => { showAllOperations(); loadRobotData(); });
+            // Delete using the specific Firebase Unique IDs
+            if (leftId) updates[`logs/${r}/${d}/left/${pathKey}/trunks/${leftId}`] = null;
+            if (rightId) updates[`logs/${r}/${d}/right/${pathKey}/trunks/${rightId}`] = null;
+
+            await db.ref().update(updates);
+            
+            alert("Record Removed.");
+            showAllOperations(); 
+            loadRobotData();
+        } catch (error) {
+            console.error(error);
+            alert("Delete failed.");
         }
     }
+}
 
    function showSummary() {
     const r = document.getElementById('robotId').value;
@@ -1069,48 +1109,80 @@ async function saveTableEdits() {
     function getTableHTMLForSide(r, d, cycleData, sideName) {
         if(!cycleData || !cycleData[sideName]) return `<div style="padding:20px; color:var(--text-body)">No ${sideName.toUpperCase()} data.</div>`;
         const sideData = cycleData[sideName];
-        let tongTotals = []; // To hold total time per tong for bottom totals row
+        let tongTotals = []; 
         
         let html = `
             <table class="ares-table">
                 <thead>
                     <tr>
                         <th>Tong ${sideName.charAt(0).toUpperCase() + sideName.slice(1)}</th>
-                        <th>Trunks ${sideName.charAt(0).toUpperCase() + sideName.slice(1)}</th>
+                        <th>Trunks</th>
                         <th>Total Run</th>
-                        <th>Idle/s Gap</th>
+                        <th>Idle Gap</th>
                         <th>Avg/Trunk</th>
                         <th>Rate/Hr</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
-        for(let i=1; i<=8; i++) {
-            const tongLabel = `${i}${suffixes[i-1]}_Tong`;
-            const tongRecord = sideData[tongLabel];
+        // 1. Get all Tong keys and sort them NUMERICALLY (1, 2, 3...)
+        const sortedTongKeys = Object.keys(sideData).sort((a, b) => {
+            const numA = parseInt(a.match(/\d+/));
+            const numB = parseInt(b.match(/\d+/));
+            return numA - numB;
+        });
+
+        let lastEndForSide = null; // Track end time across the entire arm cycle
+
+        for(const tongKey of sortedTongKeys) {
+            const tongRecord = sideData[tongKey];
             if(!tongRecord || !tongRecord.trunks) continue;
 
+            // 2. Get trunks and sort them NUMERICALLY (1, 2, 3...)
             const trunks = Array.isArray(tongRecord.trunks) ? tongRecord.trunks : Object.values(tongRecord.trunks);
-            const validTrunks = trunks.filter(t => t);
+            const validTrunks = trunks.filter(t => t).sort((a, b) => a.trunkNumber - b.trunkNumber);
+            
             if(validTrunks.length === 0) continue;
 
+            let cumulativeRunSeconds = 0;
+            let cumulativeIdleSeconds = 0;
+            const tongNum = parseInt(tongKey.match(/\d+/));
+
+            validTrunks.forEach((trunk) => {
+                // Add to Run Time
+                cumulativeRunSeconds += durToSecs(trunk.duration);
+
+                // Calculate Idle Gap (Difference between previous task end and current task start)
+                if (lastEndForSide && trunk.startTime) {
+                    const gap = calculateGapSeconds(lastEndForSide, trunk.startTime);
+                    // Only add positive gaps; ignore errors or overlaps
+                    if (gap > 0 && gap < 43200) { // Cap at 12 hours to prevent massive date jumps
+                        cumulativeIdleSeconds += gap;
+                    }
+                }
+                lastEndForSide = trunk.endTime;
+            });
+
             const numTrunks = validTrunks.length;
-            const runTimeSecs = durToSecs(tongRecord.duration);
-            const avgTrunkSecs = numTrunks > 0 ? runTimeSecs / numTrunks : 0;
+            const avgTrunkSecs = numTrunks > 0 ? cumulativeRunSeconds / numTrunks : 0;
             const rateHr = avgTrunkSecs > 0 ? (3600 / avgTrunkSecs).toFixed(2) : "0.00";
             
-            tongTotals.push({ runSecs: runTimeSecs, trunks: numTrunks });
+            tongTotals.push({ runSecs: cumulativeRunSeconds, idleSecs: cumulativeIdleSeconds, trunks: numTrunks });
 
             html += `<tr>
-                <td>${i}</td>
+                <td>${tongNum}</td>
                 <td>${numTrunks}</td>
-                <td>${secsToDur(runTimeSecs)}</td>
-                <td>0:00:00</td> <td>${secsToDur(avgTrunkSecs)}</td>
+                <td>${secsToDur(cumulativeRunSeconds)}</td>
+                <td style="color: ${cumulativeIdleSeconds > 300 ? 'var(--danger)' : 'inherit'}">
+                    ${secsToDur(cumulativeIdleSeconds)}
+                </td>
+                <td>${secsToDur(Math.round(avgTrunkSecs))}</td>
                 <td>${rateHr}</td>
             </tr>`;
         }
 
         const totalRun = tongTotals.reduce((sum, t) => sum + t.runSecs, 0);
+        const totalIdle = tongTotals.reduce((sum, t) => sum + t.idleSecs, 0);
         const totalTrunks = tongTotals.reduce((sum, t) => sum + t.trunks, 0);
         const totalAvgTrunk = totalTrunks > 0 ? totalRun / totalTrunks : 0;
         const totalRateHr = totalAvgTrunk > 0 ? (3600 / totalAvgTrunk).toFixed(2) : "0.00";
@@ -1119,12 +1191,21 @@ async function saveTableEdits() {
             <td>TOTAL/CYCLE</td>
             <td>${totalTrunks}</td>
             <td>${secsToDur(totalRun)}</td>
-            <td>0:00:00</td> <td>${secsToDur(totalAvgTrunk)}</td>
+            <td>${secsToDur(totalIdle)}</td>
+            <td>${secsToDur(Math.round(totalAvgTrunk))}</td>
             <td>${totalRateHr}</td>
         </tr>`;
 
         html += `</tbody></table>`;
         return html;
+    }
+
+    // Helper function to find the gap between HH:MM strings
+    function calculateGapSeconds(startStr, endStr) {
+        const s = new Date(0,0,0, ...startStr.split(':'));
+        const e = new Date(0,0,0, ...endStr.split(':'));
+        if (e < s) e.setDate(e.getDate() + 1);
+        return Math.floor((e - s) / 1000);
     }
 
     // NEW FUNCTION: Specific ARES metrics for the current cycle
