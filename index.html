@@ -822,17 +822,20 @@
         document.getElementById('summaryDisplay').style.display = 'none';
     }
 
-  function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
-    if(!time24) return "";
+   function getFullDateTimeStr(baseDateStr, time24, isEndTime = false, startTime24 = null) {
+    if (!time24) return "";
     const [y, m, d] = baseDateStr.split('-').map(Number);
     let date = new Date(y, m - 1, d);
     const [h, min] = time24.split(':').map(Number);
-    date.setHours(h, min);
+    date.setHours(h, min, 0, 0);
 
-    // If End Time is numerically "smaller" than Start Time (e.g., 11:50 PM to 00:12 AM)
-    // it belongs to the next calendar day.
-    if (isEndTime && startTime24 && time24 < startTime24) {
-        date.setDate(date.getDate() + 1);
+    // If End Time is numerically 'smaller' than Start Time (e.g. 00:17 < 23:54),
+    // it means it's the next day.
+    if (isEndTime && startTime24) {
+        const [sh, sm] = startTime24.split(':').map(Number);
+        if ((h * 60 + min) < (sh * 60 + sm)) {
+            date.setDate(date.getDate() + 1);
+        }
     }
 
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1160,78 +1163,117 @@ function editQA(key, data) {
             });
         });
     }
-
-    function showAllOperations() {
+function showAllOperations() {
     const r = document.getElementById('robotId').value;
-    const d = document.getElementById('opDate').value;
+    const d = document.getElementById('opDate').value; 
     const body = document.getElementById('historyBody');
     const popup = document.getElementById('historyPopup');
     if (!body || !popup) return;
 
-    body.innerHTML = "<tr><td colspan='12' style='text-align:center; padding:20px;'>Syncing with Cloud...</td></tr>";
+    body.innerHTML = "<tr><td colspan='13' style='text-align:center; padding:20px;'>Syncing Midnight Crossover Data...</td></tr>";
     popup.style.display = 'block';
 
-    db.ref(`logs/${r}/${d}`).once('value').then(snap => {
-        const data = snap.val();
-        body.innerHTML = ""; 
-        if (!data) { 
-            body.innerHTML = "<tr><td colspan='12'>No archives found.</td></tr>"; 
-            return; 
-        }
+    // 1. Calculate the "Next Day" to catch any data that bled over into the next folder
+    let dateObj = new Date(d);
+    dateObj.setDate(dateObj.getDate() + 1);
+    const dNext = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
 
+    // 2. Fetch BOTH days simultaneously
+    Promise.all([
+        db.ref(`logs/${r}/${d}`).once('value'),
+        db.ref(`logs/${r}/${dNext}`).once('value')
+    ]).then(snapshots => {
+        const day1 = snapshots[0].val() || {};
+        const day2 = snapshots[1].val() || {};
+        body.innerHTML = ""; 
+        
         let grouped = {};
-        ['left', 'right'].forEach(side => {
-            if (data[side]) {
-                Object.values(data[side]).forEach(tongRecord => {
-                    if (tongRecord && tongRecord.trunks) {
-                        // Get the keys (the unique Firebase IDs) and the values (the trunk data)
-                        const entries = Object.entries(tongRecord.trunks);
-                        entries.forEach(([firebaseId, e]) => {
-                            if (!e) return;
-                            const k = `T${e.tongNumber}-Tr${e.trunkNumber}`;
-                            if (!grouped[k]) grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber };
-                            
-                            // Store the Firebase ID so we can delete it later
-                            grouped[k][side] = { ...e, fId: firebaseId };
-                        });
-                    }
-                });
+
+        // Helper: If a Trunk starts at 10PM or later, it belongs to the PREVIOUS day's shift
+        const getCorrectedDate = (folderDate, time24) => {
+            if(!time24) return folderDate;
+            const h = parseInt(time24.split(':')[0]);
+            if (h >= 22) { 
+                let date = new Date(folderDate);
+                date.setDate(date.getDate() - 1);
+                return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
             }
-        });
+            return folderDate;
+        };
+
+        const processDay = (data, sourceDate) => {
+            ['left', 'right'].forEach(side => {
+                if (data[side]) {
+                    Object.values(data[side]).forEach(tongRecord => {
+                        if (tongRecord && tongRecord.trunks) {
+                            Object.entries(tongRecord.trunks).forEach(([fId, e]) => {
+                                if (!e) return;
+                                const k = `T${e.tongNumber}-Tr${e.trunkNumber}`;
+                                if (!grouped[k]) grouped[k] = { tong: e.tongNumber, trunk: e.trunkNumber };
+                                
+                                const correctedDate = getCorrectedDate(sourceDate, e.startTime);
+                                // IMPORTANT: We store the fId (Firebase ID) here
+                                grouped[k][side] = { ...e, fId, storageDate: sourceDate, displayDate: correctedDate };
+                            });
+                        }
+                    });
+                }
+            });
+        };
+
+        processDay(day1, d);
+        processDay(day2, dNext);
 
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
             const itemA = grouped[a], itemB = grouped[b];
             return itemA.tong !== itemB.tong ? itemA.tong - itemB.tong : itemA.trunk - itemB.trunk;
         });
 
+        if (sortedKeys.length === 0) {
+            body.innerHTML = "<tr><td colspan='13' style='text-align:center;'>No archives found.</td></tr>";
+            return;
+        }
+
         let lastEndL = null, lastEndR = null, html = "";
         sortedKeys.forEach(k => {
             const i = grouped[k], l = i.left || {}, rS = i.right || {};
             
             let gapL = "0:00:00", gapR = "0:00:00";
-            if (lastEndL && l.startTime) { let g = calculateGapSeconds(lastEndL, l.startTime); if(g>0) gapL = secsToDur(g); }
-            if (lastEndR && rS.startTime) { let g = calculateGapSeconds(lastEndR, rS.startTime); if(g>0) gapR = secsToDur(g); }
+            if (lastEndL && l.startTime) { 
+                let g = calculateGapSeconds(lastEndL, l.startTime); 
+                if(g > 0) gapL = secsToDur(g); 
+            }
+            if (lastEndR && rS.startTime) { 
+                let g = calculateGapSeconds(lastEndR, rS.startTime); 
+                if(g > 0) gapR = secsToDur(g); 
+            }
             lastEndL = l.endTime || lastEndL; lastEndR = rS.endTime || lastEndR;
 
-            // Pass the unique Firebase IDs to the delete function
-            const deleteParams = `'${i.tong}', '${l.fId || ""}', '${rS.fId || ""}'`;
+            const startStrL = l.startTime ? getFullDateTimeStr(l.displayDate, l.startTime) : "";
+            const endStrL = l.endTime ? getFullDateTimeStr(l.displayDate, l.endTime, true, l.startTime) : "";
+            const startStrR = rS.startTime ? getFullDateTimeStr(rS.displayDate, rS.startTime) : "";
+            const endStrR = rS.endTime ? getFullDateTimeStr(rS.displayDate, rS.endTime, true, rS.startTime) : "";
 
-            html += `<tr>
+            // ADDED: data-l-fid and data-r-fid attributes to the <tr>
+            html += `<tr data-l-fid="${l.fId || ""}" data-r-fid="${rS.fId || ""}">
                 <td contenteditable="true">${l.operatorName || ""}</td>
                 <td contenteditable="true">${rS.operatorName || ""}</td>
                 <td>${i.tong}</td><td>${i.trunk}</td>
-                <td contenteditable="true">${l.startTime ? getFullDateTimeStr(d, l.startTime) : ""}</td>
-                <td contenteditable="true">${l.endTime ? getFullDateTimeStr(d, l.endTime, true, l.startTime) : ""}</td>
-                <td contenteditable="true">${rS.startTime ? getFullDateTimeStr(d, rS.startTime) : ""}</td>
-                <td contenteditable="true">${rS.endTime ? getFullDateTimeStr(d, rS.endTime, true, rS.startTime) : ""}</td>
+                <td contenteditable="true">${startStrL}</td>
+                <td contenteditable="true">${endStrL}</td>
+                <td contenteditable="true">${startStrR}</td>
+                <td contenteditable="true">${endStrR}</td>
                 <td>${l.duration || "0:00:00"}</td><td>${rS.duration || "0:00:00"}</td>
                 <td style="color:${gapL!=="0:00:00"?'var(--danger)':'inherit'}">${gapL}</td>
                 <td style="color:${gapR!=="0:00:00"?'var(--danger)':'inherit'}">${gapR}</td>
-                <td><button style="background:#fff1f2; color:#e11d48; padding:5px 10px; border-radius:4px" 
-                    onclick="deleteEntry(${deleteParams})">DEL</button></td>
+                <td><button style="background:#fff1f2; color:#e11d48; padding:5px 10px; border:none; border-radius:4px; cursor:pointer;" 
+                    onclick="deleteEntry('${i.tong}', '${l.fId||""}', '${rS.fId||""}', '${l.storageDate||d}')">DEL</button></td>
             </tr>`;
         });
         body.innerHTML = html;
+    }).catch(err => {
+        console.error("Critical Sync Error:", err);
+        body.innerHTML = "<tr><td colspan='13' style='color:red;'>Cloud Connection Error.</td></tr>";
     });
 }
 
@@ -1245,89 +1287,88 @@ function editQA(key, data) {
 
     
 async function saveTableEdits() {
-    const r = document.getElementById('robotId').value;
-    const mainUiDate = document.getElementById('opDate').value;
+    const robot = document.getElementById('robotId').value;
     const rows = document.querySelectorAll('#historyBody tr');
     const saveBtn = document.getElementById('btn-save-edit');
     
-    saveBtn.innerText = "SAVING...";
+    saveBtn.innerText = "SYNCING...";
     saveBtn.disabled = true;
 
     let updates = {};
+
+    const getCellDate = (text) => {
+        const m = text.match(/([a-zA-Z]+ \d{1,2}, \d{4})/);
+        if (!m) return null;
+        const d = new Date(m[0]);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+
+    const get24h = (text) => {
+        const m = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (!m) return "";
+        let h = parseInt(m[1]);
+        if (m[3].toUpperCase() === "PM" && h < 12) h += 12;
+        if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+        return `${String(h).padStart(2, '0')}:${m[2]}`;
+    };
 
     rows.forEach(row => {
         const c = row.cells;
         if (c.length < 12) return;
 
-        const leftName = c[0].innerText.trim();
-        const rightName = c[1].innerText.trim();
-        const tongNum = parseInt(c[2].innerText);
-        const trunkNum = parseInt(c[3].innerText); // This is our key (e.g., 1, 2, 3)
+        const tong = c[2].innerText;
+        const trunk = c[3].innerText;
+        const folder = `${tong}${suffixes[parseInt(tong)-1]}_Tong`.replace(/ /g, '_');
         
-        const parseTimeFromCell = (cellText) => {
-            const match = cellText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            if (!match) return null;
-            let h = parseInt(match[1]);
-            const m = match[2];
-            const ampm = match[3].toUpperCase();
-            if (ampm === "PM" && h < 12) h += 12;
-            if (ampm === "AM" && h === 12) h = 0;
-            return `${String(h).padStart(2, '0')}:${m}`;
-        };
+        // GET THE ORIGINAL FIREBASE IDs
+        const lFid = row.getAttribute('data-l-fid');
+        const rFid = row.getAttribute('data-r-fid');
 
-        const lStart = parseTimeFromCell(c[4].innerText);
-        const lEnd = parseTimeFromCell(c[5].innerText);
-        const rStart = parseTimeFromCell(c[6].innerText);
-        const rEnd = parseTimeFromCell(c[7].innerText);
-
-        const folderKey = `${tongNum}${suffixes[tongNum-1]}_Tong`.replace(/ /g, '_');
-
-        // Build Left Update - Targeting the numeric trunkNum ID
-        if (lStart && lEnd) {
-            const pathL = `logs/${r}/${mainUiDate}/left/${folderKey}`;
-            updates[`${pathL}/trunks/${trunkNum}`] = {
-                operatorName: leftName,
-                tongNumber: tongNum,
-                trunkNumber: trunkNum,
-                startTime: lStart,
-                endTime: lEnd,
-                duration: calculateDuration(lStart, lEnd)
+        // LEFT SIDE
+        const lDate = getCellDate(c[4].innerText); 
+        if (lDate && lFid) { // Only update if we have the ID
+            const path = `logs/${robot}/${lDate}/left/${folder}/trunks/${lFid}`;
+            updates[path] = {
+                operatorName: c[0].innerText.trim(),
+                tongNumber: parseInt(tong),
+                trunkNumber: parseInt(trunk),
+                startTime: get24h(c[4].innerText),
+                endTime: get24h(c[5].innerText),
+                duration: calculateDuration(get24h(c[4].innerText), get24h(c[5].innerText))
             };
-            // Ensure the Tong header stays updated
-            updates[`${pathL}/tongLabel`] = `${tongNum}${suffixes[tongNum-1]} Tong`;
         }
 
-        // Build Right Update - Targeting the numeric trunkNum ID
-        if (rStart && rEnd) {
-            const pathR = `logs/${r}/${mainUiDate}/right/${folderKey}`;
-            updates[`${pathR}/trunks/${trunkNum}`] = {
-                operatorName: rightName,
-                tongNumber: tongNum,
-                trunkNumber: trunkNum,
-                startTime: rStart,
-                endTime: rEnd,
-                duration: calculateDuration(rStart, rEnd)
+        // RIGHT SIDE
+        const rDate = getCellDate(c[6].innerText); 
+        if (rDate && rFid) {
+            const path = `logs/${robot}/${rDate}/right/${folder}/trunks/${rFid}`;
+            updates[path] = {
+                operatorName: c[1].innerText.trim(),
+                tongNumber: parseInt(tong),
+                trunkNumber: parseInt(trunk),
+                startTime: get24h(c[6].innerText),
+                endTime: get24h(c[7].innerText),
+                duration: calculateDuration(get24h(c[6].innerText), get24h(c[7].innerText))
             };
-            // Ensure the Tong header stays updated
-            updates[`${pathR}/tongLabel`] = `${tongNum}${suffixes[tongNum-1]} Tong`;
         }
     });
 
     try {
+        if (Object.keys(updates).length === 0) {
+            alert("No changes detected or IDs missing.");
+            return;
+        }
         await db.ref().update(updates);
-        alert("Edits saved. Data alignment verified.");
+        alert("Data Saved.");
+        showAllOperations(); 
+    } catch (e) {
+        console.error(e);
+        alert("Sync Failed.");
+    } finally {
         saveBtn.innerText = "SAVE EDITS";
-        saveBtn.disabled = false;
-        
-        showAllOperations();
-        loadRobotData();
-    } catch (err) {
-        console.error("Save Error:", err);
-        alert("Sync Error.");
         saveBtn.disabled = false;
     }
 }
-    
     function filterHistoryTable() {
         const query = document.getElementById('historySearch').value.toLowerCase();
         document.querySelectorAll('#historyBody tr').forEach(row => {
@@ -1578,8 +1619,6 @@ async function saveTableEdits() {
                 <div style="background:var(--bg-body); border:1px solid var(--input-border); border-radius:var(--radius-md); padding:20px; margin-bottom:20px; font-size:13px; color:var(--text-heading)">
                     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px">
                         <div><strong style="font-weight:700">ARES: ${r} | Date: ${d} | Cycle Start: ${cycleStartTimeStr}</strong></div>
-                        <div style="text-align:right"><strong>Overall Cycle Metrics</strong></div>
-                        <div style="display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:10px">Total Cycle Hr/s Deployment: <span style="color:var(--text-body)">${secsToDur(cycleUptime)}</span></div>
                         <div style="display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:10px">Total No. of Trunks Deployment: <span style="color:var(--text-body)">${cycleTrunks}</span></div>
                     </div>
                 </div>
